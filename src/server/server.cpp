@@ -6,6 +6,8 @@
 #include "worker.h"
 #include "log/NanoLog.h"
 
+#include <boost/asio/signal_set.hpp>
+
 int spt::server::run( const util::Configuration& configuration )
 {
   try
@@ -14,6 +16,13 @@ int spt::server::run( const util::Configuration& configuration )
 
     net::io_context ioc{ 1 };
     tcp::acceptor acceptor{ ioc, { address, static_cast<unsigned short>( configuration.port ) } };
+
+    net::signal_set signals(ioc, SIGINT, SIGTERM);
+    signals.async_wait(
+        [&](beast::error_code const&, int)
+        {
+          ioc.stop();
+        });
 
     std::list<Worker> workers;
     for (int i = 0; i < configuration.threads; ++i)
