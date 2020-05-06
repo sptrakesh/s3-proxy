@@ -5,19 +5,108 @@
 #include "s3util.h"
 #include "log/NanoLog.h"
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-#include <aws/core/auth/AWSCredentials.h>
+
 #include <aws/core/Aws.h>
+#include <aws/core/utils/DateTime.h>
+#include <aws/core/auth/AWSCredentials.h>
 #include <aws/s3/model/GetObjectRequest.h>
 
 namespace spt::server::ps3
 {
   Aws::SDKOptions options{};
   std::unique_ptr<S3Util> s3util = nullptr;
+
+  std::string lastModified( const Aws::Utils::DateTime& date )
+  {
+    std::ostringstream oss;
+
+    switch ( date.GetDayOfWeek() )
+    {
+    case Aws::Utils::DayOfWeek::Sunday:
+      oss << "Sun, ";
+      break;
+    case Aws::Utils::DayOfWeek::Monday:
+      oss << "Mon, ";
+      break;
+    case Aws::Utils::DayOfWeek::Tuesday:
+      oss << "Tue, ";
+      break;
+    case Aws::Utils::DayOfWeek::Wednesday:
+      oss << "Wed, ";
+      break;
+    case Aws::Utils::DayOfWeek::Thursday:
+      oss << "Thu, ";
+      break;
+    case Aws::Utils::DayOfWeek::Friday:
+      oss << "Fri, ";
+      break;
+    case Aws::Utils::DayOfWeek::Saturday:
+      oss << "Sat, ";
+      break;
+    }
+
+    if ( date.GetDay() < 10 ) oss << '0';
+    oss << date.GetDay() << ' ';
+
+    switch ( date.GetMonth() )
+    {
+    case Aws::Utils::Month::January:
+      oss << "Jan ";
+      break;
+    case Aws::Utils::Month::February:
+      oss << "Feb ";
+      break;
+    case Aws::Utils::Month::March:
+      oss << "Mar ";
+      break;
+    case Aws::Utils::Month::April:
+      oss << "Apr ";
+      break;
+    case Aws::Utils::Month::May:
+      oss << "May ";
+      break;
+    case Aws::Utils::Month::June:
+      oss << "Jun ";
+      break;
+    case Aws::Utils::Month::July:
+      oss << "Jul ";
+      break;
+    case Aws::Utils::Month::August:
+      oss << "Aug ";
+      break;
+    case Aws::Utils::Month::September:
+      oss << "Sep ";
+      break;
+    case Aws::Utils::Month::October:
+      oss << "Oct ";
+      break;
+    case Aws::Utils::Month::November:
+      oss << "Nov ";
+      break;
+    case Aws::Utils::Month::December:
+      oss << "Dec ";
+      break;
+    }
+
+    oss << date.GetYear() << ' ';
+
+    if ( date.GetHour() < 10 ) oss << '0';
+    oss << date.GetHour() << ':';
+    if ( date.GetMinute() < 10 ) oss << '0';
+    oss << date.GetMinute() << ':';
+    if ( date.GetSecond() < 10 ) oss << '0';
+    oss << date.GetSecond();
+
+    oss << " GMT";
+    return oss.str();
+  }
 }
 
+using spt::server::S3Object;
 using spt::server::S3Util;
 
 void S3Util::init( const util::Configuration& configuration )
@@ -46,7 +135,7 @@ S3Util::S3Util( const spt::util::Configuration& configuration ) :
       clientConfig );
 }
 
-std::optional<std::string> spt::server::S3Util::get( const std::string& name )
+S3Object::Opt S3Util::get( const std::string& name )
 {
   try
   {
@@ -66,15 +155,37 @@ std::optional<std::string> spt::server::S3Util::get( const std::string& name )
     ss << configuration.cacheDir << '/' << std::hash<std::string>{}( name );
     const auto fileName = ss.str();
 
-    auto target = fileName;
-    target.append( ".tmp" );
+    const auto now = std::chrono::system_clock::now();
+    const auto us = std::chrono::duration_cast<std::chrono::microseconds>( now.time_since_epoch() );
+    std::string target;
+    target.reserve( fileName.size() + 16 );
+    target.append( fileName );
+    target.append( "." );
+    target.append( std::to_string( us.count() ) );
 
-    const auto& body = outcome.GetResultWithOwnership().GetBody();
+    auto result = outcome.GetResultWithOwnership();
     std::ofstream of{ target, std::ios::binary };
-    of << body.rdbuf();
+    of << result.GetBody().rdbuf();
 
     std::filesystem::rename( target, fileName );
-    return fileName;
+    S3Object obj;
+    obj.contentType = result.GetContentType();
+    obj.fileName = fileName;
+    obj.etag = result.GetETag();
+    obj.cacheControl = result.GetCacheControl();
+    if ( obj.cacheControl.empty() )
+    {
+      obj.cacheControl = std::string{ "max-age=" }.append( std::to_string( configuration.ttl ) );
+    }
+
+    obj.lastModified = ps3::lastModified( result.GetLastModified() );
+
+    auto expires = std::chrono::system_clock::now();
+    expires += std::chrono::seconds ( configuration.ttl );
+    obj.expires = ps3::lastModified( expires );
+
+    obj.contentLength = result.GetContentLength();
+    return obj;
   }
   catch ( const std::exception& e )
   {

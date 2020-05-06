@@ -3,9 +3,9 @@
 //
 
 #pragma once
+#include "s3object.h"
 #include "util/config.h"
 
-#include <optional>
 #include <aws/s3/S3Client.h>
 
 namespace spt::server
@@ -17,7 +17,7 @@ namespace spt::server
     static S3Util* instance();
     ~S3Util();
 
-    std::optional<std::string> get( const std::string& name );
+    S3Object::Opt get( const std::string& name );
 
   private:
     explicit S3Util( const util::Configuration& configuration );
