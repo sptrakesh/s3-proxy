@@ -13,8 +13,7 @@ namespace spt::server
   class S3Util
   {
   public:
-    static void init( util::Configuration::Ptr configuration );
-    static S3Util* instance();
+    static S3Util& instance( util::Configuration::Ptr configuration = nullptr );
     ~S3Util();
 
     util::S3Object::Opt get( const std::string& name );

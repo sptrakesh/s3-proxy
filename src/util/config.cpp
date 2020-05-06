@@ -23,7 +23,6 @@ std::string Configuration::str() const
     ", \"region\":" << region <<
     ", \"bucket\":" << bucket <<
     ", \"cacheDir\":" << cacheDir <<
-    ", \"cacheInMemory\":" << std::boolalpha << cacheInMemory <<
     ", \"cacheTTL\":" << ttl <<
     ", \"port\":" << port <<
     ", \"threads\":" << threads;

@@ -19,7 +19,6 @@ namespace spt::util
     std::string region;
     std::string bucket;
     std::string cacheDir{ "/tmp" };
-    bool cacheInMemory = false;
     int port = 8000;
     int ttl = 300;
     int threads = std::thread::hardware_concurrency();

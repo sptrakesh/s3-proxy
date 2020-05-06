@@ -16,22 +16,13 @@
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/s3/model/GetObjectRequest.h>
 
-namespace spt::server::ps3
-{
-  std::unique_ptr<S3Util> s3util = nullptr;
-}
-
 using spt::server::S3Util;
 
-void S3Util::init( util::Configuration::Ptr configuration )
+S3Util& S3Util::instance( util::Configuration::Ptr configuration )
 {
   Aws::InitAPI( {} );
-  ps3::s3util = std::unique_ptr<S3Util>( new S3Util( std::move( configuration ) ) );
-}
-
-S3Util* S3Util::instance()
-{
-  return ps3::s3util.get();
+  static S3Util instance{ std::move( configuration ) };
+  return instance;
 }
 
 S3Util::~S3Util()

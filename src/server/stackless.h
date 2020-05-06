@@ -118,7 +118,7 @@ namespace spt::server
 
     std::string resource{ req.target().data(), req.target().size() };
     if ( req.target().back() == '/' ) resource.append( "index.html" );
-    auto downloaded = S3Util::instance()->get( resource );
+    auto downloaded = S3Util::instance().get( resource );
     if ( ! downloaded )
     {
       LOG_WARN << "Error downloading resource " << resource;

@@ -25,7 +25,6 @@ int main( int argc, char const * const * argv )
       Opt(config->threads, "threads")["-n"]["--threads"]("Number of server threads to spawn (default system)") |
       Opt(console, "console")["-c"]["--console"]("Log to console (default false)") |
       Opt(config->ttl, "TTL")["-t"]["--ttl"]("TTL for local cache in seconds (default 300)") |
-      Opt(config->cacheInMemory, "cacheInMemory")["-m"]["--cache-memory"]("Enable caching of text files in memory (default false)") |
       Opt(config->cacheDir, "cacheDir")["-d"]["--cache-dir"]("Location for local cache (default /tmp)") |
       Opt(config->region, "region")["-r"]["--region"]("AWS region for the account") |
       Opt(config->bucket, "bucket")["-b"]["--bucket"]("AWS bucket from which files are to be served") |
