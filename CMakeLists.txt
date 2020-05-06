@@ -65,6 +65,7 @@ endif()
 
 set(CMAKE_INSTALL_PREFIX /opt/spt)
 
+add_definitions(-DCACHE_TTL=300)
 add_subdirectory(src)
 
 #enable_testing()

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 #include <thread>
 
@@ -11,6 +12,8 @@ namespace spt::util
 {
   struct Configuration
   {
+    using Ptr = std::shared_ptr<Configuration>;
+
     std::string key;
     std::string secret;
     std::string region;

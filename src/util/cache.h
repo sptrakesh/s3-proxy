@@ -5,21 +5,15 @@
 #pragma once
 
 #include "ExpirationCache.h"
+#include "s3object.h"
 
 namespace spt::util
 {
-  using SensorIdCache = ExpirationCache<std::string, std::string, 24*60*60>;
-  using ReelWithCableIdCache = ExpirationCache<std::string, std::string, 24*60*60>;
+  using MetadataCache = ExpirationCache<std::string, S3Object, CACHE_TTL>;
 
-  inline SensorIdCache& getSensorIdCache()
+  inline MetadataCache& getMetadataCache()
   {
-    static SensorIdCache cache;
-    return cache;
-  }
-
-  inline ReelWithCableIdCache& getReelWithCableIdCache()
-  {
-    static ReelWithCableIdCache cache;
+    static MetadataCache cache;
     return cache;
   }
 }

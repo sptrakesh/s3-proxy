@@ -159,8 +159,8 @@ namespace spt::server
       else res.set( http::field::content_type, downloaded->contentType );
 
       if ( !downloaded->etag.empty() ) res.set( http::field::etag, downloaded->etag );
-      if ( !downloaded->expires.empty() ) res.set( http::field::expires, downloaded->expires );
-      if ( !downloaded->lastModified.empty() ) res.set( http::field::last_modified, downloaded->lastModified );
+      res.set( http::field::expires, downloaded->expirationTime() );
+      res.set( http::field::last_modified, downloaded->lastModifiedTime() );
       if ( !downloaded->cacheControl.empty() ) res.set( http::field::cache_control, downloaded->cacheControl );
 
       res.content_length( size );
@@ -179,8 +179,8 @@ namespace spt::server
     else res.set( http::field::content_type, downloaded->contentType );
 
     if ( !downloaded->etag.empty() ) res.set( http::field::etag, downloaded->etag );
-    if ( !downloaded->expires.empty() ) res.set( http::field::expires, downloaded->expires );
-    if ( !downloaded->lastModified.empty() ) res.set( http::field::last_modified, downloaded->lastModified );
+    res.set( http::field::expires, downloaded->expirationTime() );
+    res.set( http::field::last_modified, downloaded->lastModifiedTime() );
     if ( !downloaded->cacheControl.empty() ) res.set( http::field::cache_control, downloaded->cacheControl );
 
     res.content_length( size );

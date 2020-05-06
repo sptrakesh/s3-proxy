@@ -7,5 +7,5 @@
 
 namespace spt::server
 {
-  int run( const util::Configuration& configuration );
+  int run( util::Configuration::Ptr configuration );
 }
