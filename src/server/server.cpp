@@ -12,6 +12,9 @@ int spt::server::run( const util::Configuration& configuration )
 {
   try
   {
+    S3Util::init( configuration );
+    LOG_INFO << "Initialised AWS S3 Util";
+
     auto const address = net::ip::make_address( "0.0.0.0" );
     net::io_context ioc{ configuration.threads };
 

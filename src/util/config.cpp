@@ -20,6 +20,8 @@ std::string Configuration::str() const
 {
   std::ostringstream ss;
   ss << "{\"key\":" << key <<
+    ", \"region\":" << region <<
+    ", \"bucket\":" << bucket <<
     ", \"cacheDir\":" << cacheDir <<
     ", \"cacheInMemory\":" << std::boolalpha << cacheInMemory <<
     ", \"cacheTTL\":" << ttl <<

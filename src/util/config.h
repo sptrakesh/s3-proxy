@@ -13,6 +13,8 @@ namespace spt::util
   {
     std::string key;
     std::string secret;
+    std::string region;
+    std::string bucket;
     std::string cacheDir{ "/tmp" };
     bool cacheInMemory = false;
     int port = 8000;

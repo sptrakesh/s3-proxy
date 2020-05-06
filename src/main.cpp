@@ -15,7 +15,6 @@ int main( int argc, char const * const * argv )
 
   spt::util::Configuration config;
   bool console = false;
-  int logBuffer = 3;
   std::string dir{"logs/"};
   bool help = false;
 
@@ -25,10 +24,11 @@ int main( int argc, char const * const * argv )
       Opt(config.port, "port")["-p"]["--port"]("Port on which to listen (default 8000)") |
       Opt(config.threads, "threads")["-n"]["--threads"]("Number of server threads to spawn (default system)") |
       Opt(console, "console")["-c"]["--console"]("Log to console (default false)") |
-      Opt(logBuffer, "logBuffer")["-b"]["--buffer"]("Buffer size for async logging (default 3)") |
       Opt(config.ttl, "TTL")["-t"]["--ttl"]("TTL for local cache in seconds (default 300)") |
       Opt(config.cacheInMemory, "cacheInMemory")["-m"]["--cache-memory"]("Enable caching of text files in memory (default false)") |
       Opt(config.cacheDir, "cacheDir")["-d"]["--cache-dir"]("Location for local cache (default /tmp)") |
+      Opt(config.region, "region")["-r"]["--region"]("AWS region for the account") |
+      Opt(config.bucket, "bucket")["-b"]["--bucket"]("AWS bucket from which files are to be served") |
       Opt(dir, "dir")["-o"]["--dir"]("Log directory (default logs/)");
 
   auto result = options.parse(clara::Args(argc, argv));
@@ -47,7 +47,6 @@ int main( int argc, char const * const * argv )
   std::cout << "Starting daemon with options\n" <<
     "configuration: " << config.str() << '\n' <<
     "console: " << std::boolalpha << console << '\n' <<
-    "logBuffer: " << logBuffer << '\n' <<
     "dir: " << dir << '\n';
 
   nanolog::initialize( nanolog::GuaranteedLogger(), dir, "s3-proxy", console );
