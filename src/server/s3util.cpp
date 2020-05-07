@@ -40,7 +40,7 @@ S3Util::S3Util( util::Configuration::Ptr config ) :
       clientConfig );
 }
 
-spt::util::S3Object::Opt S3Util::get( const std::string& name )
+spt::util::S3Object::Ptr S3Util::get( const std::string& name )
 {
   try
   {
@@ -49,10 +49,14 @@ spt::util::S3Object::Opt S3Util::get( const std::string& name )
     if ( iter != cache.end() )
     {
       const auto now = std::chrono::system_clock::now();
-      if ( now < iter->second.expires )
+      if ( now < iter->second->expires )
       {
         LOG_DEBUG << "Returning cached content for " << name;
-        return iter->second;
+        if ( std::filesystem::exists( iter->second->fileName ) ) return iter->second;
+        else
+        {
+          LOG_WARN << "Previously cached file for " << name << " at " << iter->second->fileName << " gone.";
+        }
       }
       else
       {
@@ -69,7 +73,7 @@ spt::util::S3Object::Opt S3Util::get( const std::string& name )
     {
       const auto& error = outcome.GetError();
       LOG_WARN << "ERROR: " << error.GetExceptionName() << ": " << error.GetMessage();
-      return std::nullopt;
+      return nullptr;
     }
 
     std::ostringstream ss;
@@ -89,19 +93,19 @@ spt::util::S3Object::Opt S3Util::get( const std::string& name )
     of << result.GetBody().rdbuf();
 
     std::filesystem::rename( target, fileName );
-    util::S3Object obj;
-    obj.contentType = result.GetContentType();
-    obj.fileName = fileName;
-    obj.etag = result.GetETag();
-    obj.cacheControl = result.GetCacheControl();
-    if ( obj.cacheControl.empty() )
+    auto obj = std::make_shared<util::S3Object>();
+    obj->contentType = result.GetContentType();
+    obj->fileName = fileName;
+    obj->etag = result.GetETag();
+    obj->cacheControl = result.GetCacheControl();
+    if ( obj->cacheControl.empty() )
     {
-      obj.cacheControl = std::string{ "max-age=" }.append( std::to_string( configuration->ttl ) );
+      obj->cacheControl = std::string{ "max-age=" }.append( std::to_string( configuration->ttl ) );
     }
 
-    obj.lastModified = result.GetLastModified().UnderlyingTimestamp();
-    obj.expires += std::chrono::seconds( configuration->ttl );
-    obj.contentLength = result.GetContentLength();
+    obj->lastModified = result.GetLastModified().UnderlyingTimestamp();
+    obj->expires += std::chrono::seconds( configuration->ttl );
+    obj->contentLength = result.GetContentLength();
 
     cache.put( name, obj );
     return obj;
@@ -111,6 +115,6 @@ spt::util::S3Object::Opt S3Util::get( const std::string& name )
     LOG_CRIT << "Error: " << e.what();
   }
 
-  return std::nullopt;
+  return nullptr;
 }
 

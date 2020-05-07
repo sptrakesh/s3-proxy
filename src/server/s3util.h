@@ -16,7 +16,7 @@ namespace spt::server
     static S3Util& instance( util::Configuration::Ptr configuration = nullptr );
     ~S3Util();
 
-    util::S3Object::Opt get( const std::string& name );
+    util::S3Object::Ptr get( const std::string& name );
 
   private:
     explicit S3Util( util::Configuration::Ptr configuration );

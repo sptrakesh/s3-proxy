@@ -9,7 +9,7 @@
 
 namespace spt::util
 {
-  using MetadataCache = ExpirationCache<std::string, S3Object, CACHE_TTL>;
+  using MetadataCache = ExpirationCache<std::string, S3Object::Ptr, CACHE_TTL>;
 
   inline MetadataCache& getMetadataCache()
   {

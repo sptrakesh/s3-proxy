@@ -5,22 +5,22 @@
 #pragma once
 
 #include <chrono>
-#include <optional>
+#include <memory>
 #include <string>
 
 namespace spt::util
 {
   struct S3Object
   {
-    using Opt = std::optional<S3Object>;
+    using Ptr = std::shared_ptr<S3Object>;
 
     S3Object() = default;
     ~S3Object() = default;
     S3Object( S3Object&& ) = default;
     S3Object& operator=( S3Object&& ) = default;
 
-    S3Object( const S3Object& ) = default;
-    S3Object& operator=( const S3Object& ) = default;
+    S3Object( const S3Object& ) = delete;
+    S3Object& operator=( const S3Object& ) = delete;
 
     [[nodiscard]] std::string str() const;
     [[nodiscard]] std::string expirationTime() const;
