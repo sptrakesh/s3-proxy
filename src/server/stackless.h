@@ -93,6 +93,17 @@ namespace spt::server
           return res;
         };
 
+    // Returns a not modified response
+    auto const not_modified = [&req]()
+        {
+          http::response<http::string_body> res{
+              http::status::not_modified, req.version() };
+          res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
+          res.keep_alive( req.keep_alive() );
+          res.prepare_payload();
+          return res;
+        };
+
     // Make sure we can handle the method
     if ( req.method() != http::verb::get &&
         req.method() != http::verb::head &&
@@ -118,6 +129,7 @@ namespace spt::server
 
     std::string resource{ req.target().data(), req.target().size() };
     if ( req.target().back() == '/' ) resource.append( "index.html" );
+
     auto downloaded = S3Util::instance().get( resource );
     if ( ! downloaded )
     {
@@ -129,10 +141,6 @@ namespace spt::server
       LOG_INFO << "Downloaded resource " << resource << " from S3\n" << downloaded->str();
     }
 
-    // Build the path to the requested file
-    std::string path = path_cat( doc_root, req.target() );
-    if ( req.target().back() == '/' ) path.append( "index.html" );
-
     // Attempt to open the file
     beast::error_code ec;
     http::file_body::value_type body;
@@ -143,11 +151,14 @@ namespace spt::server
       return send( not_found( req.target()));
 
     // Handle an unknown error
-    if ( ec )
-      return send( server_error( ec.message()));
+    if ( ec ) return send( server_error( ec.message()));
 
     // Cache the size since we need it after the move
     auto const size = downloaded->contentLength > 0 ? downloaded->contentLength : body.size();
+
+    // Build the path to the requested file
+    std::string path = path_cat( doc_root, req.target() );
+    if ( req.target().back() == '/' ) path.append( "index.html" );
 
     // Respond to HEAD request
     if ( req.method() == http::verb::head )
@@ -166,6 +177,18 @@ namespace spt::server
       res.content_length( size );
       res.keep_alive( req.keep_alive() );
       return send( std::move( res ) );
+    }
+
+    auto ifmatch = req[http::field::if_none_match];
+    if ( beast::string_view{ downloaded->etag } == ifmatch )
+    {
+      return send( not_modified() );
+    }
+
+    auto ifmodified = req[http::field::if_modified_since];
+    if ( beast::string_view{ downloaded->lastModifiedTime() } == ifmodified )
+    {
+      return send( not_modified() );
     }
 
     // Respond to GET request
