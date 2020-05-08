@@ -18,6 +18,7 @@ namespace spt::util
     std::string secret;
     std::string region;
     std::string bucket;
+    std::string authKey;
     std::string cacheDir{ "/tmp" };
     int port = 8000;
     int ttl = 300;
@@ -25,6 +26,4 @@ namespace spt::util
 
     std::string str() const;
   };
-
-  std::string hostname();
 }

@@ -19,6 +19,7 @@ int main( int argc, char const * const * argv )
   bool help = false;
 
   auto options = clara::Help(help) |
+      Opt(config->authKey, "authKey")["-a"]["--auth-key"]("Bearer token to use for management API endpoints") |
       Opt(config->key, "key")["-k"]["--key"]("AWS IAM account key to use") |
       Opt(config->secret, "secret")["-s"]["--secret"]("AWS IAM account secret to use") |
       Opt(config->port, "port")["-p"]["--port"]("Port on which to listen (default 8000)") |
