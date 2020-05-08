@@ -11,7 +11,7 @@ describe("Basic tests for proxy server", function()
   local etag, lastModified
 
   setup(function()
-    response = requests.get(baseUrl)
+    local response = requests.get(baseUrl)
     etag = response.headers["etag"]
     assert.is_not_nil(etag)
     log.info("Etag: ", etag)
@@ -24,7 +24,7 @@ describe("Basic tests for proxy server", function()
   end)
 
   it("Options request", function()
-    response = requests.options(baseUrl)
+    local response = requests.options(baseUrl)
     assert.are.equal(204, response.status_code)
     local value = response.headers["access-control-allow-origin"]
     assert.is_not_nil(value)
@@ -35,12 +35,12 @@ describe("Basic tests for proxy server", function()
   end)
 
   it("Retrieve explicit index file", function()
-    response = requests.get(baseUrl..'/index.html')
+    local response = requests.get(baseUrl..'/index.html')
     assert.are.equal(200, response.status_code)
   end)
 
   it("Head request for index file", function()
-    response = requests.head(baseUrl)
+    local response = requests.head(baseUrl)
     assert.is_not_nil(response.headers["etag"])
     assert.is_not_nil(response.headers["expires"])
     assert.is_not_nil(response.headers["last-modified"])
@@ -50,7 +50,7 @@ describe("Basic tests for proxy server", function()
 
   it("Get request for index file with If-None-Match", function()
     local headers = {["if-none-match"] = etag}
-    response = requests.get{baseUrl, headers = headers, timeout = 2}
+    local response = requests.get{baseUrl, headers = headers, timeout = 2}
     assert.are.equal(304, response.status_code)
 
     headers = {["If-None-Match"] = etag}
@@ -60,7 +60,7 @@ describe("Basic tests for proxy server", function()
 
   it("Get request for index file with If-Modified-Since", function()
     local headers = {["if-modified-since"] = lastModified}
-    response = requests.get{baseUrl, headers = headers, timeout = 2}
+    local response = requests.get{baseUrl, headers = headers, timeout = 2}
     assert.are.equal(304, response.status_code)
 
     headers = {["If-Modified-Since"] = lastModified}

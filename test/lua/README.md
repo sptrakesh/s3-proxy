@@ -9,6 +9,12 @@ Install necessary Lua modules via `luarocks`
 ## Running tests
 Start local **S3 Proxy** instance before running the tests.
 
+```shell script
+<path to>/s3proxy -c true -o /tmp/ -a abc123 \
+  -r <AWS region> -b <bucket> \
+  -k <AWS Key> -s <AWS Secret>
+```
+
 Run tests by pointing `busted` at the test directory root.
 
 ```shell script
@@ -17,3 +23,4 @@ Run tests by pointing `busted` at the test directory root.
 
 ## References
 * [busted](http://olivinelabs.com/busted/)
+* [requests](https://github.com/JakobGreen/lua-requests)

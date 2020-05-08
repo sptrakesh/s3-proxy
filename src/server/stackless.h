@@ -7,6 +7,7 @@
 #include "s3util.h"
 #include "log/NanoLog.h"
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
@@ -116,6 +117,17 @@ namespace spt::server
           return res;
         };
 
+    // Return a forbidden response
+    auto const forbidden = [&req]()
+    {
+      http::response<http::string_body> res{
+          http::status::forbidden, req.version() };
+      res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
+      res.keep_alive( req.keep_alive() );
+      res.prepare_payload();
+      return res;
+    };
+
     // Make sure we can handle the method
     if ( req.method() != http::verb::get &&
         req.method() != http::verb::head &&
@@ -131,6 +143,25 @@ namespace spt::server
       res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
       res.keep_alive( req.keep_alive() );
       return send( std::move( res ) );
+    }
+
+    if ( http::verb::get == req.method() && req.target() == "/_proxy/_private/_cache/clear" )
+    {
+      auto bearer = req["Authorization"];
+      if ( bearer.empty() ) bearer = req["authorization"];
+      if ( bearer.empty() ) return send( forbidden() );
+
+      const auto prefix = std::string("Bearer ");
+      if ( !boost::algorithm::starts_with( bearer, prefix ) )
+      {
+        return send( bad_request( "Invalid Authorization header" ) );
+      }
+
+      std::string temp{ bearer };
+      temp.erase( 0, prefix.size() );
+
+      if ( S3Util::instance().clear( temp ) ) return send( not_modified() );
+      else return send( forbidden() );
     }
 
     // Request path must be absolute and not contain "..".
@@ -159,11 +190,10 @@ namespace spt::server
     body.open( downloaded->fileName.c_str(), beast::file_mode::scan, ec );
 
     // Handle the case where the file doesn't exist
-    if ( ec == beast::errc::no_such_file_or_directory )
-      return send( not_found( req.target()));
+    if ( ec == beast::errc::no_such_file_or_directory ) return send( not_found( req.target() ) );
 
     // Handle an unknown error
-    if ( ec ) return send( server_error( ec.message()));
+    if ( ec ) return send( server_error( ec.message() ) );
 
     // Cache the size since we need it after the move
     auto const size = downloaded->contentLength > 0 ? downloaded->contentLength : body.size();

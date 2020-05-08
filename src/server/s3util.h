@@ -17,6 +17,7 @@ namespace spt::server
     ~S3Util();
 
     util::S3Object::Ptr get( const std::string& name );
+    bool clear( const std::string& authKey );
 
   private:
     explicit S3Util( util::Configuration::Ptr configuration );

@@ -9,8 +9,8 @@ In particular it is possible to serve static content from a private S3 bucket.
 The server can be configured with the following options:
 * `--auth-key` - A `bearer token` value to use to access internal management
 API endpoints.
-    * At present there is only the `/_proxy/_private/_cache/clear` endpoint to 
-    clear the cache.
+    * At present the only management endpoint is `/_proxy/_private/_cache/clear`
+     to clear the cache.
 * `--key` - The *AWS Access key ID* to use to authorise the AWS SDK.
 * `--secret` - The *AWS Secret access key* to use to authorise the AWS SDK.
 * `--region` - The *AWS Region* in which the `bucket` exists.
