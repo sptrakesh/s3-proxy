@@ -1,4 +1,11 @@
 # s3-proxy
+
+* [Configuration](#configuration)
+* [Testing](#testing)
+* [Docker](#docker)
+* [Cache Management](#cache-management)
+* [Acknowledgements](#acknowledgements)
+
 A simple proxy server for serving contents of an AWS S3 bucket as a static website.
 Useful in cases where it is not feasible to use traditional CloudFront distribution
 or similar CDN on top of a bucket.
@@ -67,12 +74,17 @@ ab -n 100000 -c 100 -r http://127.0.0.1:8000/
 Docker images for the server will be published on *Docker Hub* as changes are
 made to the implementation.  The images can be `pulled` from `sptrakesh/s3-proxy`.
 
-## Clearing Cache
+## Cache Management
 Clearing the cache can be achieved via either of the following options:
 * Restart the service.  On restart the in-memory metadata is lost, and objects
 will be re-fetched from S3.
 * Invoke the `/_proxy/_private/_cache/clear` endpoint on the service with the
 configured `--auth-key` *Bearer* authorisation token.
+
+```shell script
+# For clearing cache on instance running on localhost
+curl -i --header "Authorization: Bearer <authKey>" http://127.0.0.1:8000/_proxy/_private/_cache/clear
+```
 
 ## Acknowledgements
 This software has been developed mainly using work other people have contributed.
