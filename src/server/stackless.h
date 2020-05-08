@@ -64,6 +64,18 @@ namespace spt::server
           return res;
         };
 
+    auto const not_allowed =
+        [&req]()
+        {
+          http::response<http::string_body> res{ http::status::method_not_allowed,
+              req.version() };
+          res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
+          res.set( http::field::content_type, "text/html" );
+          res.keep_alive( req.keep_alive() );
+          res.prepare_payload();
+          return res;
+        };
+
     // Returns a not found response
     auto const not_found =
         [&req]( beast::string_view target )
@@ -108,7 +120,7 @@ namespace spt::server
     if ( req.method() != http::verb::get &&
         req.method() != http::verb::head &&
         req.method() != http::verb::options )
-      return send( bad_request( "Unknown HTTP-method" ));
+      return send( not_allowed() );
 
     if ( req.method() == http::verb::options )
     {
@@ -131,7 +143,7 @@ namespace spt::server
     if ( req.target().back() == '/' ) resource.append( "index.html" );
 
     auto downloaded = S3Util::instance().get( resource );
-    if ( ! downloaded )
+    if ( ! downloaded || downloaded->fileName.empty() )
     {
       LOG_WARN << "Error downloading resource " << resource;
       return send( not_found( req.target() ) );

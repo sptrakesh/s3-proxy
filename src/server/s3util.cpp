@@ -52,6 +52,7 @@ spt::util::S3Object::Ptr S3Util::get( const std::string& name )
       if ( now < iter->second->expires )
       {
         LOG_DEBUG << "Returning cached content for " << name;
+        if ( iter->second->fileName.empty() ) return iter->second;
         if ( std::filesystem::exists( iter->second->fileName ) ) return iter->second;
         else
         {
@@ -72,7 +73,17 @@ spt::util::S3Object::Ptr S3Util::get( const std::string& name )
     if ( !outcome.IsSuccess() )
     {
       const auto& error = outcome.GetError();
-      LOG_WARN << "ERROR: " << error.GetExceptionName() << ": " << error.GetMessage();
+      LOG_WARN << "ERROR: " << error.GetExceptionName() << ": " << error.GetMessage() <<
+        ", response code: " << static_cast<int>(error.GetResponseCode());
+
+      if ( Aws::Http::HttpResponseCode::NOT_FOUND == error.GetResponseCode() )
+      {
+        LOG_INFO << "Caching not-found state till TTL expires for " << name;
+        auto obj = std::make_shared<util::S3Object>();
+        obj->expires += std::chrono::seconds( configuration->ttl );
+        cache.put( name, obj );
+        return obj;
+      }
       return nullptr;
     }
 
