@@ -142,14 +142,19 @@ namespace spt::util
       return map_.size();
     }
 
+    void clear()
+    {
+      clearAll();
+    }
+
+  private:
+    virtual int getTTL() const override { return TTL; }
+
     virtual void clearAll() override
     {
       std::unique_lock lock( mt_ );
       map_.clear();
     }
-
-  private:
-    virtual int getTTL() const override { return TTL; }
 
   private:
     std::unordered_map<KeyType, ValueType> map_;

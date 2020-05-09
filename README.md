@@ -72,7 +72,12 @@ ab -n 100000 -c 100 -r http://127.0.0.1:8000/
 
 ## Docker
 Docker images for the server will be published on *Docker Hub* as changes are
-made to the implementation.  The images can be `pulled` from `sptrakesh/s3-proxy`.
+made to the implementation.  The image can be *pulled* from `sptrakesh/s3-proxy`.
+
+```shell script
+# Build docker image locally
+<path to project>/docker/build.sh
+```
 
 ## Cache Management
 Clearing the cache can be achieved via either of the following options:

@@ -133,7 +133,7 @@ bool S3Util::clear( const std::string& authKey )
 {
   if ( configuration->authKey != authKey ) return false;
   LOG_INFO << "Clearing cached object metadata";
-  util::getMetadataCache().clearAll();
+  util::getMetadataCache().clear();
   return true;
 }
 
