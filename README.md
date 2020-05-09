@@ -3,6 +3,7 @@
 * [Configuration](#configuration)
 * [Testing](#testing)
 * [Docker](#docker)
+    * [Run Locally](#run-locally)
 * [Cache Management](#cache-management)
 * [Acknowledgements](#acknowledgements)
 
@@ -77,6 +78,22 @@ made to the implementation.  The image can be *pulled* from `sptrakesh/s3-proxy`
 ```shell script
 # Build docker image locally
 <path to project>/docker/build.sh
+```
+
+### Run Locally
+Following shows a sample for running the docker image from *Docker Hub*
+
+```shell script
+mkdir -p proxy/data proxy/logs
+docker run -d --rm \
+  -v $PWD/proxy/data:/opt/spt/data \
+  -v $dir/proxy/logs:/opt/spt/logs \
+  -p 8000:8000 \
+  -e AWS_REGION="<your region>" \
+  -e S3_BUCKET="<your bucket>" \
+  -e AWS_KEY="<your key>" \
+  -e AWS_SECRET="<your secret>" \
+  --name s3-proxy sptrakesh/s3-proxy
 ```
 
 ## Cache Management
