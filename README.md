@@ -93,6 +93,7 @@ docker run -d --rm \
   -e S3_BUCKET="<your bucket>" \
   -e AWS_KEY="<your key>" \
   -e AWS_SECRET="<your secret>" \
+  -e AUTH_KEY="<your desired bearer token>" \
   --name s3-proxy sptrakesh/s3-proxy
 ```
 

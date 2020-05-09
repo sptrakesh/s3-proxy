@@ -31,6 +31,12 @@ Check()
 
 Defaults()
 {
+  if [ -z "$AUTH_KEY" ]
+  then
+    AUTH_KEY="2YnjxYUcQ30IVYxhC/818VsfoRrL9yt9qPsOxNx5YVM="
+    echo "AUTH_KEY not set.  Will default to $AUTH_KEY"
+  fi
+
   if [ -z "$TTL" ]
   then
     TTL=300
@@ -68,7 +74,8 @@ Service()
   /opt/spt/bin/s3proxy -c true -o ${LOGDIR}/ \
     -t $TTL -d $CACHE_DIR -p $PORT -n $THREADS \
     -r "$AWS_REGION" -b "$S3_BUCKET" \
-    -k "$AWS_KEY" -s "$AWS_SECRET"
+    -k "$AWS_KEY" -s "$AWS_SECRET" \
+    -a $AUTH_KEY
 }
 
 Check && Defaults && Service
