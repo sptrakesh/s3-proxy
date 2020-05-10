@@ -49,7 +49,7 @@ namespace spt::server
   handle_request(
       beast::string_view doc_root,
       http::request<Body, http::basic_fields<Allocator>>&& req,
-      Send&& send )
+      Send&& send, net::ip::address client )
   {
     // Returns a bad request response
     auto const bad_request =
@@ -134,6 +134,10 @@ namespace spt::server
         req.method() != http::verb::options )
       return send( not_allowed() );
 
+    auto ip = req["x-forwarded-for"];
+    if ( ip.empty() ) ip = client.to_string();
+    LOG_DEBUG << "Request from " << std::string_view{ ip.data(), ip.size() };
+
     if ( req.method() == http::verb::options )
     {
       http::response<http::empty_body> res{ http::status::no_content,
@@ -147,8 +151,8 @@ namespace spt::server
 
     if ( http::verb::get == req.method() && req.target() == "/_proxy/_private/_cache/clear" )
     {
-      auto bearer = req["Authorization"];
-      if ( bearer.empty() ) bearer = req["authorization"];
+      auto bearer = req["authorization"];
+      if ( bearer.empty() ) bearer = req["Authorization"];
       if ( bearer.empty() ) return send( forbidden() );
 
       const auto prefix = std::string("Bearer ");
@@ -160,8 +164,7 @@ namespace spt::server
       std::string temp{ bearer };
       temp.erase( 0, prefix.size() );
 
-      if ( S3Util::instance().clear( temp ) ) return send( not_modified() );
-      else return send( forbidden() );
+      return S3Util::instance().clear( temp ) ? send( not_modified() ) : send( forbidden() );
     }
 
     // Request path must be absolute and not contain "..".
@@ -357,13 +360,12 @@ namespace spt::server
             // The remote host closed the connection
             break;
           }
-          if ( ec )
-            return fail( ec, "read" );
+          if ( ec ) return fail( ec, "read" );
 
           // Send the response
-          yield handle_request( *doc_root_, std::move( req_ ), lambda_ );
-          if ( ec )
-            return fail( ec, "write" );
+          yield handle_request( *doc_root_, std::move( req_ ), lambda_,
+              stream_.socket().remote_endpoint().address() );
+          if ( ec ) return fail( ec, "write" );
           if ( close )
           {
             // This means we should close the connection, usually because

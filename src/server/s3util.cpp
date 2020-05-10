@@ -132,7 +132,7 @@ spt::util::S3Object::Ptr S3Util::get( const std::string& name )
 bool S3Util::clear( const std::string& authKey )
 {
   if ( configuration->authKey != authKey ) return false;
-  LOG_INFO << "Clearing cached object metadata";
+  LOG_INFO << "Clearing cached object metadata (" << util::getMetadataCache().count() << ")";
   util::getMetadataCache().clear();
   return true;
 }

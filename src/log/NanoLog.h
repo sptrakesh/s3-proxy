@@ -29,6 +29,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <iosfwd>
 #include <type_traits>
 
@@ -54,6 +55,7 @@ namespace nanolog
     NanoLogLine& operator<<(uint64_t arg);
     NanoLogLine& operator<<(double arg);
     NanoLogLine& operator<<(std::string const & arg);
+    NanoLogLine& operator<<(std::string_view arg);
 
     template < size_t N >
     NanoLogLine& operator<<(const char (&arg)[N])

@@ -17,6 +17,7 @@ std::string Configuration::str() const
     ", \"cacheDir\":" << cacheDir <<
     ", \"cacheTTL\":" << ttl <<
     ", \"port\":" << port <<
-    ", \"threads\":" << threads;
+    ", \"threads\":" << threads <<
+    '}';
   return ss.str();
 }
