@@ -18,6 +18,8 @@ std::string Configuration::str() const
     ", \"cacheTTL\":" << ttl <<
     ", \"port\":" << port <<
     ", \"threads\":" << threads <<
+    R"(, "mmdb": {"host": ")" << mmdbHost <<
+    R"(", "port":)" << mmdbPort << '}' <<
     '}';
   return ss.str();
 }

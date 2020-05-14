@@ -29,6 +29,8 @@ int main( int argc, char const * const * argv )
       Opt(config->cacheDir, "cacheDir")["-d"]["--cache-dir"]("Location for local cache (default /tmp)") |
       Opt(config->region, "region")["-r"]["--region"]("AWS region for the account") |
       Opt(config->bucket, "bucket")["-b"]["--bucket"]("AWS bucket from which files are to be served") |
+      Opt(config->mmdbHost, "mmdbHost")["-m"]["--mmdb-host"]("MMDB WebSocket service host. Disabled if not specified.") |
+      Opt(config->mmdbPort, "mmdbPort")["-x"]["--mmdb-port"]("MMDB WebSocket service port (default 8010)") |
       Opt(dir, "dir")["-o"]["--dir"]("Log directory (default logs/)");
 
   auto result = options.parse(clara::Args(argc, argv));

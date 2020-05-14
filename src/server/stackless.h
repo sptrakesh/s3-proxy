@@ -5,7 +5,9 @@
 #pragma once
 
 #include "s3util.h"
+#include "client/mmdb.h"
 #include "log/NanoLog.h"
+#include "util/config.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/beast/core.hpp>
@@ -47,7 +49,7 @@ namespace spt::server
       class Send>
   void
   handle_request(
-      beast::string_view doc_root,
+      const util::Configuration& config,
       http::request<Body, http::basic_fields<Allocator>>&& req,
       Send&& send, net::ip::address client )
   {
@@ -58,7 +60,7 @@ namespace spt::server
           http::response<http::string_body> res{ http::status::bad_request,
               req.version() };
           res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
-          res.set( http::field::content_type, "text/html" );
+          res.set( http::field::content_type, "text/plain" );
           res.keep_alive( req.keep_alive());
           res.body() = std::string( why );
           res.prepare_payload();
@@ -71,7 +73,7 @@ namespace spt::server
           http::response<http::string_body> res{ http::status::method_not_allowed,
               req.version() };
           res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
-          res.set( http::field::content_type, "text/html" );
+          res.set( http::field::content_type, "text/plain" );
           res.keep_alive( req.keep_alive() );
           res.prepare_payload();
           return res;
@@ -84,7 +86,7 @@ namespace spt::server
           http::response<http::string_body> res{ http::status::not_found,
               req.version() };
           res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
-          res.set( http::field::content_type, "text/html" );
+          res.set( http::field::content_type, "text/plain" );
           res.keep_alive( req.keep_alive());
           res.body() =
               "The resource '" + std::string( target ) + "' was not found.";
@@ -99,7 +101,7 @@ namespace spt::server
           http::response<http::string_body> res{
               http::status::internal_server_error, req.version() };
           res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
-          res.set( http::field::content_type, "text/html" );
+          res.set( http::field::content_type, "text/plain" );
           res.keep_alive( req.keep_alive());
           res.body() = "An error occurred: '" + std::string( what ) + "'";
           res.prepare_payload();
@@ -134,9 +136,16 @@ namespace spt::server
         req.method() != http::verb::options )
       return send( not_allowed() );
 
-    auto ip = req["x-forwarded-for"];
-    if ( ip.empty() ) ip = client.to_string();
-    LOG_DEBUG << "Request from " << std::string_view{ ip.data(), ip.size() };
+    if ( !config.mmdbHost.empty() )
+    {
+      auto ip = req["x-real-ip"];
+      if ( ip.empty() ) ip = req["x-forwarded-for"];
+      if ( ip.empty() ) ip = client.to_string();
+      const auto ipstr = std::string{ ip.data(), ip.size() };
+      LOG_DEBUG << "Request from " << ipstr;
+      auto fields = client::MMDBClient::instance().query( ipstr );
+      LOG_INFO << "Client latitude: " << fields["latitude"] << ", longitude: " << fields["longitude"];
+    }
 
     if ( req.method() == http::verb::options )
     {
@@ -202,7 +211,7 @@ namespace spt::server
     auto const size = downloaded->contentLength > 0 ? downloaded->contentLength : body.size();
 
     // Build the path to the requested file
-    std::string path = path_cat( doc_root, req.target() );
+    std::string path = path_cat( config.cacheDir, req.target() );
     if ( req.target().back() == '/' ) path.append( "index.html" );
 
     // Respond to HEAD request
@@ -302,17 +311,16 @@ namespace spt::server
 
     beast::tcp_stream stream_;
     beast::flat_buffer buffer_;
-    std::shared_ptr<std::string const> doc_root_;
+    util::Configuration::Ptr config;
     http::request<http::string_body> req_;
     std::shared_ptr<void> res_;
     send_lambda lambda_;
 
   public:
     // Take ownership of the socket
-    explicit session(
-        tcp::socket&& socket,
-        std::shared_ptr<std::string const> const& doc_root )
-        : stream_( std::move( socket )), doc_root_( doc_root ),
+    explicit session( tcp::socket&& socket,
+        util::Configuration::Ptr config )
+        : stream_( std::move( socket )), config( std::move( config ) ),
         lambda_( *this )
     {
     }
@@ -363,7 +371,7 @@ namespace spt::server
           if ( ec ) return fail( ec, "read" );
 
           // Send the response
-          yield handle_request( *doc_root_, std::move( req_ ), lambda_,
+          yield handle_request( *config, std::move( req_ ), lambda_,
               stream_.socket().remote_endpoint().address() );
           if ( ec ) return fail( ec, "write" );
           if ( close )
@@ -397,15 +405,15 @@ namespace spt::server
     net::io_context& ioc_;
     tcp::acceptor acceptor_;
     tcp::socket socket_;
-    std::shared_ptr<std::string const> doc_root_;
+    util::Configuration::Ptr config;
 
   public:
     listener(
         net::io_context& ioc,
         tcp::endpoint endpoint,
-        std::shared_ptr<std::string const> const& doc_root )
+        util::Configuration::Ptr config )
         : ioc_( ioc ), acceptor_( net::make_strand( ioc )),
-        socket_( net::make_strand( ioc )), doc_root_( doc_root )
+        socket_( net::make_strand( ioc )), config( std::move( config ) )
     {
       beast::error_code ec;
 
@@ -473,7 +481,7 @@ namespace spt::server
             // Create the session and run it
             std::make_shared<session>(
                 std::move( socket_ ),
-                doc_root_ )->run();
+                config )->run();
           }
 
           // Make sure each session gets its own strand

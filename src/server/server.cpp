@@ -4,6 +4,7 @@
 
 #include "server.h"
 #include "stackless.h"
+#include "client/mmdb.h"
 #include "log/NanoLog.h"
 
 #include <iostream>
@@ -26,17 +27,17 @@ int spt::server::run( util::Configuration::Ptr configuration )
           ioc.stop();
         });
 
+    if ( !configuration->mmdbHost.empty() ) client::MMDBClient::instance( configuration );
+
     // Create and launch a listening port
-    auto const docroot = std::make_shared<std::string>( configuration->cacheDir );
-    std::make_shared<listener>(
-        ioc,
+    std::make_shared<listener>( ioc,
         tcp::endpoint{ address, static_cast<unsigned short>( configuration->port ) },
-        docroot )->run();
+        configuration )->run();
 
     // Run the I/O service on the requested number of threads
     std::vector<std::thread> v;
     v.reserve( configuration->threads - 1 );
-    for( auto i = configuration->threads - 1; i > 0; --i )
+    for ( auto i = configuration->threads - 1; i > 0; --i )
     {
       v.emplace_back( [&ioc] { ioc.run(); } );
     }

@@ -3,6 +3,7 @@
 //
 
 #include "stackless.h"
+#include "log/NanoLog.h"
 
 beast::string_view spt::server::mime_type( beast::string_view path )
 {
@@ -91,5 +92,5 @@ spt::server::path_cat( beast::string_view base, beast::string_view path )
 
 void spt::server::fail( beast::error_code ec, char const* what )
 {
-  std::cerr << what << ": " << ec.message() << "\n";
+  LOG_WARN << what << ": " << ec.message();
 }

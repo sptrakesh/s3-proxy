@@ -11,7 +11,8 @@ describe("Basic tests for proxy server", function()
   local etag, lastModified
 
   setup(function()
-    local response = requests.get(baseUrl)
+    local headers = {["x-forwarded-for"] = "184.105.163.155"}
+    local response = requests.get{baseUrl, headers = headers}
     etag = response.headers["etag"]
     assert.is_not_nil(etag)
     log.info("Etag: ", etag)
@@ -35,7 +36,8 @@ describe("Basic tests for proxy server", function()
   end)
 
   it("Retrieve explicit index file", function()
-    local response = requests.get(baseUrl..'/index.html')
+    local headers = {["x-real-ip"] = "184.105.163.155"}
+    local response = requests.get{baseUrl..'/index.html', headers = headers }
     assert.are.equal(200, response.status_code)
   end)
 
@@ -49,7 +51,7 @@ describe("Basic tests for proxy server", function()
   end)
 
   it("Get request for index file with If-None-Match", function()
-    local headers = {["if-none-match"] = etag}
+    local headers = {["if-none-match"] = etag, ["x-forwarded-for"] = "184.105.163.155"}
     local response = requests.get{baseUrl, headers = headers, timeout = 2}
     assert.are.equal(304, response.status_code)
 
@@ -59,7 +61,7 @@ describe("Basic tests for proxy server", function()
   end)
 
   it("Get request for index file with If-Modified-Since", function()
-    local headers = {["if-modified-since"] = lastModified}
+    local headers = {["if-modified-since"] = lastModified, ["x-real-ip"] = "184.105.163.155"}
     local response = requests.get{baseUrl, headers = headers, timeout = 2}
     assert.are.equal(304, response.status_code)
 

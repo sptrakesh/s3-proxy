@@ -20,7 +20,9 @@ namespace spt::util
     std::string bucket;
     std::string authKey;
     std::string cacheDir{ "/tmp" };
+    std::string mmdbHost;
     int port = 8000;
+    int mmdbPort = 8010;
     int ttl = 300;
     int threads = std::thread::hardware_concurrency();
 
