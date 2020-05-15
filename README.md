@@ -68,11 +68,11 @@ Full list of options can always be consulted by running the following:
 Basic performance testing has been performed using Apache Benchmarking utility.
 
 ```shell script
-ab -n 10000 -c 100 -r http://127.0.0.1:8000/
-ab -n 10000 -c 200 -r http://127.0.0.1:8000/
-ab -n 10000 -c 300 -r http://127.0.0.1:8000/
-ab -n 10000 -c 400 -r http://127.0.0.1:8000/
-ab -n 100000 -c 100 -r http://127.0.0.1:8000/
+ab -H 'x-forwarded-for: 184.105.163.155' -n 10000 -c 100 -r http://127.0.0.1:8000/
+ab -H 'x-forwarded-for: 184.105.163.155' -n 10000 -c 200 -r http://127.0.0.1:8000/
+ab -H 'x-forwarded-for: 184.105.163.155' -n 10000 -c 300 -r http://127.0.0.1:8000/
+ab -H 'x-forwarded-for: 184.105.163.155' -n 10000 -c 400 -r http://127.0.0.1:8000/
+ab -H 'x-forwarded-for: 184.105.163.155' -n 100000 -c 100 -r http://127.0.0.1:8000/
 ```
 
 ## Docker

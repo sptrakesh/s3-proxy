@@ -4,6 +4,7 @@
 
 #include "mmdb.h"
 #include "log/NanoLog.h"
+#include "util/cache.h"
 
 #include <mutex>
 #include <vector>
@@ -70,19 +71,11 @@ namespace spt::client::mmdb
     MMDBClient::Properties fields( const std::string& ip )
     {
       MMDBClient::Properties  props;
-      std::lock_guard<std::mutex> guard( mutex );
+      std::string text;
 
       try
       {
-        connect();
-        const std::string req = "f:" + ip;
-        ws.write( net::buffer( req ) );
-        beast::flat_buffer buffer;
-        ws.read( buffer );
-
-        std::ostringstream ss;
-        ss << beast::make_printable( buffer.data() );
-        const auto text = ss.str();
+        text = retrieve( ip );
         if ( text == ip ) return props;
 
         for ( auto line : split( text, 10, "\n" ) )
@@ -97,7 +90,7 @@ namespace spt::client::mmdb
       }
       catch ( const std::exception& ex )
       {
-        LOG_WARN << "Error querying ip " << ip << ' ' << ex.what();
+        LOG_WARN << "Error parsing ip response " << text << '\n' << ex.what();
       }
 
       return props;
@@ -126,6 +119,36 @@ namespace spt::client::mmdb
       {
         LOG_CRIT << "Error initiating MMDB websocket connection " << ex.what();
       }
+    }
+
+    std::string retrieve( const std::string& ip )
+    {
+      auto& cache = util::getLocationCache();
+      auto iter = cache.find( ip );
+      if ( iter != cache.end() ) return iter->second;
+
+      std::lock_guard<std::mutex> guard( mutex );
+
+      try
+      {
+        connect();
+        const std::string req = "f:" + ip;
+        ws.write( net::buffer( req ) );
+        beast::flat_buffer buffer;
+        ws.read( buffer );
+
+        std::ostringstream ss;
+        ss << beast::make_printable( buffer.data() );
+        auto value = ss.str();
+        cache.put( ip, value );
+        return value;
+      }
+      catch ( const std::exception& ex )
+      {
+        LOG_WARN << "Error querying ip " << ip << ' ' << ex.what();
+      }
+
+      return {};
     }
 
     net::io_context ioc;
