@@ -49,6 +49,10 @@ rotated daily.  Default `logs/` directory under the current working directory.
         restart the container, since the logs should end up in CloudWatch.
             * Ensure the *Docker* daemon has been configured to log to CloudWatch.
             * Ensure the server is started with `--console true`.
+* `--mmdb-host` - If integration with [mmdb-ws](https://github.com/sptrakesh/mmdb-ws)
+is desired, specify the hostname for the service.
+* `--mmdb-port` - Port on which the `mmdb-ws` service is listening.  Default is
+`8010`.  Only relevant if `--mmdb-host` is specified.
 
 Full list of options can always be consulted by running the following:
 

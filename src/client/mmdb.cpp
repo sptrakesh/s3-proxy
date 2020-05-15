@@ -5,6 +5,7 @@
 #include "mmdb.h"
 #include "log/NanoLog.h"
 
+#include <mutex>
 #include <vector>
 
 #include <boost/algorithm/string/trim.hpp>
@@ -69,6 +70,7 @@ namespace spt::client::mmdb
     MMDBClient::Properties fields( const std::string& ip )
     {
       MMDBClient::Properties  props;
+      std::lock_guard<std::mutex> guard( mutex );
 
       try
       {
@@ -130,6 +132,7 @@ namespace spt::client::mmdb
     tcp::resolver resolver;
     websocket::stream<tcp::socket> ws;
     util::Configuration::Ptr config;
+    std::mutex mutex;
   };
 }
 
