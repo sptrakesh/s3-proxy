@@ -4,8 +4,8 @@
 
 #include "server.h"
 #include "stackless.h"
-#include "client/mmdb.h"
 #include "log/NanoLog.h"
+#include "util/queuemanager.h"
 
 #include <iostream>
 #include <boost/asio/signal_set.hpp>
@@ -27,12 +27,13 @@ int spt::server::run( util::Configuration::Ptr configuration )
           ioc.stop();
         });
 
-    if ( !configuration->mmdbHost.empty() ) client::MMDBClient::instance( configuration );
+    util::QueueManager::instance( configuration );
+    //if ( !configuration->mmdbHost.empty() ) client::MMDBClient::instance( configuration );
 
     // Create and launch a listening port
     std::make_shared<listener>( ioc,
         tcp::endpoint{ address, static_cast<unsigned short>( configuration->port ) },
-        configuration )->run();
+        configuration.get() )->run();
 
     // Run the I/O service on the requested number of threads
     std::vector<std::thread> v;

@@ -21,11 +21,15 @@ namespace spt::util
     std::string authKey;
     std::string cacheDir{ "/tmp" };
     std::string mmdbHost;
+    std::string akumuli;
     int port = 8000;
     int mmdbPort = 8010;
+    int akumuliPort = 8282;
     int ttl = 300;
     int threads = std::thread::hardware_concurrency();
 
     std::string str() const;
   };
+
+  bool publishMetrics( const Configuration& config );
 }

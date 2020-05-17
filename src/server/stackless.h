@@ -5,9 +5,10 @@
 #pragma once
 
 #include "s3util.h"
-#include "client/mmdb.h"
 #include "log/NanoLog.h"
 #include "util/config.h"
+#include "util/metric.h"
+#include "util/queuemanager.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/beast/core.hpp>
@@ -130,21 +131,25 @@ namespace spt::server
       return res;
     };
 
+    auto metric = util::Metric{};
+    const auto method = http::to_string( req.method() );
+    metric.method = std::string{ method.data(), method.size() };
+    metric.resource = std::string{ req.target().data(), req.target().size() };
+
+    auto ip = req["x-real-ip"];
+    if ( ip.empty() ) ip = req["x-forwarded-for"];
+    if ( ip.empty() ) ip = client.to_string();
+    metric.ipaddress = std::string{ ip.data(), ip.size() };
+    LOG_DEBUG << "Request from " << metric.ipaddress;
+
     // Make sure we can handle the method
     if ( req.method() != http::verb::get &&
         req.method() != http::verb::head &&
         req.method() != http::verb::options )
-      return send( not_allowed() );
-
-    if ( !config.mmdbHost.empty() )
     {
-      auto ip = req["x-real-ip"];
-      if ( ip.empty() ) ip = req["x-forwarded-for"];
-      if ( ip.empty() ) ip = client.to_string();
-      const auto ipstr = std::string{ ip.data(), ip.size() };
-      LOG_DEBUG << "Request from " << ipstr;
-      auto fields = client::MMDBClient::instance().query( ipstr );
-      LOG_INFO << "Client latitude: " << fields["latitude"] << ", longitude: " << fields["longitude"];
+      metric.status = 405;
+      util::QueueManager::instance().publish( std::move( metric ) );
+      return send( not_allowed() );
     }
 
     if ( req.method() == http::verb::options )
@@ -155,6 +160,8 @@ namespace spt::server
       res.set( "Access-Control-Allow-Methods", "GET" );
       res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
       res.keep_alive( req.keep_alive() );
+      metric.status = 200;
+      util::QueueManager::instance().publish( std::move( metric ) );
       return send( std::move( res ) );
     }
 
@@ -162,25 +169,47 @@ namespace spt::server
     {
       auto bearer = req["authorization"];
       if ( bearer.empty() ) bearer = req["Authorization"];
-      if ( bearer.empty() ) return send( forbidden() );
+      if ( bearer.empty() )
+      {
+        metric.status = 403;
+        util::QueueManager::instance().publish( std::move( metric ) );
+        return send( forbidden() );
+      }
 
       const auto prefix = std::string("Bearer ");
       if ( !boost::algorithm::starts_with( bearer, prefix ) )
       {
+        metric.status = 400;
+        util::QueueManager::instance().publish( std::move( metric ) );
         return send( bad_request( "Invalid Authorization header" ) );
       }
 
       std::string temp{ bearer };
       temp.erase( 0, prefix.size() );
 
-      return S3Util::instance().clear( temp ) ? send( not_modified() ) : send( forbidden() );
+      if ( S3Util::instance().clear( temp ) )
+      {
+        metric.status = 304;
+        util::QueueManager::instance().publish( std::move( metric ) );
+        return send( not_modified() );
+      }
+      else
+      {
+        metric.status = 403;
+        util::QueueManager::instance().publish( std::move( metric ) );
+        return send( forbidden() );
+      }
     }
 
     // Request path must be absolute and not contain "..".
     if ( req.target().empty() ||
         req.target()[0] != '/' ||
         req.target().find( ".." ) != beast::string_view::npos )
+    {
+      metric.status = 400;
+      util::QueueManager::instance().publish( std::move( metric ) );
       return send( bad_request( "Illegal request-target" ));
+    }
 
     std::string resource{ req.target().data(), req.target().size() };
     if ( req.target().back() == '/' ) resource.append( "index.html" );
@@ -189,6 +218,8 @@ namespace spt::server
     if ( ! downloaded || downloaded->fileName.empty() )
     {
       LOG_WARN << "Error downloading resource " << resource;
+      metric.status = 404;
+      util::QueueManager::instance().publish( std::move( metric ) );
       return send( not_found( req.target() ) );
     }
     else
@@ -205,10 +236,14 @@ namespace spt::server
     if ( ec == beast::errc::no_such_file_or_directory ) return send( not_found( req.target() ) );
 
     // Handle an unknown error
-    if ( ec ) return send( server_error( ec.message() ) );
+    if ( ec )
+    {
+      metric.status = 500;
+      util::QueueManager::instance().publish( std::move( metric ) );
+      return send( server_error( ec.message() ) );
+    }
 
-    // Cache the size since we need it after the move
-    auto const size = downloaded->contentLength > 0 ? downloaded->contentLength : body.size();
+    metric.size = downloaded->contentLength > 0 ? downloaded->contentLength : body.size();
 
     // Build the path to the requested file
     std::string path = path_cat( config.cacheDir, req.target() );
@@ -228,20 +263,26 @@ namespace spt::server
       res.set( http::field::last_modified, downloaded->lastModifiedTime() );
       if ( !downloaded->cacheControl.empty() ) res.set( http::field::cache_control, downloaded->cacheControl );
 
-      res.content_length( size );
+      res.content_length( metric.size );
       res.keep_alive( req.keep_alive() );
+      metric.status = 200;
+      util::QueueManager::instance().publish( std::move( metric ) );
       return send( std::move( res ) );
     }
 
     auto ifmatch = req[http::field::if_none_match];
     if ( beast::string_view{ downloaded->etag } == ifmatch )
     {
+      metric.status = 304;
+      util::QueueManager::instance().publish( std::move( metric ) );
       return send( not_modified() );
     }
 
     auto ifmodified = req[http::field::if_modified_since];
     if ( beast::string_view{ downloaded->lastModifiedTime() } == ifmodified )
     {
+      metric.status = 304;
+      util::QueueManager::instance().publish( std::move( metric ) );
       return send( not_modified() );
     }
 
@@ -260,8 +301,10 @@ namespace spt::server
     res.set( http::field::last_modified, downloaded->lastModifiedTime() );
     if ( !downloaded->cacheControl.empty() ) res.set( http::field::cache_control, downloaded->cacheControl );
 
-    res.content_length( size );
+    res.content_length( metric.size );
     res.keep_alive( req.keep_alive() );
+    metric.status = 200;
+    util::QueueManager::instance().publish( std::move( metric ) );
     return send( std::move( res ) );
   }
 
@@ -311,17 +354,15 @@ namespace spt::server
 
     beast::tcp_stream stream_;
     beast::flat_buffer buffer_;
-    util::Configuration::Ptr config;
+    util::Configuration* config;
     http::request<http::string_body> req_;
     std::shared_ptr<void> res_;
     send_lambda lambda_;
 
   public:
     // Take ownership of the socket
-    explicit session( tcp::socket&& socket,
-        util::Configuration::Ptr config )
-        : stream_( std::move( socket )), config( std::move( config ) ),
-        lambda_( *this )
+    explicit session( tcp::socket&& socket, util::Configuration* config )
+        : stream_( std::move( socket )), config( config ), lambda_( *this )
     {
     }
 
@@ -405,13 +446,10 @@ namespace spt::server
     net::io_context& ioc_;
     tcp::acceptor acceptor_;
     tcp::socket socket_;
-    util::Configuration::Ptr config;
+    util::Configuration* config;
 
   public:
-    listener(
-        net::io_context& ioc,
-        tcp::endpoint endpoint,
-        util::Configuration::Ptr config )
+    listener( net::io_context& ioc, tcp::endpoint endpoint, util::Configuration* config )
         : ioc_( ioc ), acceptor_( net::make_strand( ioc )),
         socket_( net::make_strand( ioc )), config( std::move( config ) )
     {

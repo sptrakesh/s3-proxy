@@ -75,6 +75,36 @@ ab -H 'x-forwarded-for: 184.105.163.155' -n 10000 -c 400 -r http://127.0.0.1:800
 ab -H 'x-forwarded-for: 184.105.163.155' -n 100000 -c 100 -r http://127.0.0.1:8000/
 ```
 
+Also tested using `httper` for a much bigger run with the focus on ensuring no
+errors over an extended run.
+
+```shell script
+httperf --client=0/1 --server=localhost --port=8000 --uri=/ --send-buffer=4096 --recv-buffer=16384 --num-conns=20000 --num-calls=200
+httperf: warning: open file limit > FD_SETSIZE; limiting max. # of open files to FD_SETSIZE
+Maximum connect burst length: 1
+
+Total: connections 20000 requests 4000000 replies 4000000 test-duration 1549.168 s
+
+Connection rate: 12.9 conn/s (77.5 ms/conn, <=1 concurrent connections)
+Connection time [ms]: min 62.0 avg 77.5 max 596.9 median 74.5 stddev 14.6
+Connection time [ms]: connect 0.2
+Connection length [replies/conn]: 200.000
+
+Request rate: 2582.0 req/s (0.4 ms/req)
+Request size [B]: 62.0
+
+Reply rate [replies/s]: min 1324.9 avg 2581.7 max 3018.2 stddev 288.2 (309 samples)
+Reply time [ms]: response 0.4 transfer 0.0
+Reply size [B]: header 247.0 content 2950.0 footer 0.0 (total 3197.0)
+Reply status: 1xx=0 2xx=4000000 3xx=0 4xx=0 5xx=0
+
+CPU time [s]: user 311.45 system 1229.94 (user 20.1% system 79.4% total 99.5%)
+Net I/O: 8217.6 KB/s (67.3*10^6 bps)
+
+Errors: total 0 client-timo 0 socket-timo 0 connrefused 0 connreset 0
+Errors: fd-unavail 0 addrunavail 0 ftab-full 0 other 0
+```
+
 ## Docker
 Docker images for the server will be published on *Docker Hub* as changes are
 made to the implementation.  The image can be *pulled* from `sptrakesh/s3-proxy`.
@@ -132,3 +162,5 @@ to access the underlying *S3 bucket*.
 for the server.  I modified the implementation for daily rolling log files.
 * **[expirationCache](https://github.com/zapredelom/expirationCache)** - Cache
 manager for S3 object metadata.
+* **[PolyM](https://github.com/khuttun/PolyM)** - Simple in-process message queue
+for pushing visitor geo location data into [Akumuli](https://akumuli.org/) TSDB.

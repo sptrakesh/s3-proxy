@@ -62,6 +62,38 @@ Defaults()
   fi
 }
 
+Extras()
+{
+  if [ -z "$MMDB_PORT" ]
+  then
+    MMDB_PORT=8010
+    echo "MMDB_PORT not set.  Will default to $MMDB_PORT"
+  fi
+
+  if [ -z "$MMDB_HOST" ]
+  then
+    echo "MMDB_HOST not set.  Akumuli and MMDB integration disabled"
+  fi
+
+  if [ -z "$AKUMULI_PORT" ]
+  then
+    AKUMULI_PORT=8282
+    echo "AKUMULI_PORT not set.  Will default to $AKUMULI_PORT"
+  fi
+
+  if [ -z "$AKUMULI_HOST" ]
+  then
+    echo "AKUMULI_HOST not set.  Akumuli and MMDB integration disabled"
+  fi
+
+  args=""
+  if [ -n "$MMDB_HOST" ] && [ -n "$AKUMULI_HOST" ]
+  then
+    args="--mmdb-host $MMDB_HOST --mmdb-port $MMDB_PORT"
+    args="$args --akumuli-host $AKUMULI_HOST --akumuli-port $AKUMULI_PORT"
+  fi
+}
+
 Service()
 {
   if [ ! -d $LOGDIR ]
@@ -71,11 +103,11 @@ Service()
   fi
 
   echo "Starting up AWS S3 proxy server"
-  /opt/spt/bin/s3proxy -c true -o ${LOGDIR}/ \
-    -t $TTL -d $CACHE_DIR -p $PORT -n $THREADS \
-    -r "$AWS_REGION" -b "$S3_BUCKET" \
-    -k "$AWS_KEY" -s "$AWS_SECRET" \
-    -a $AUTH_KEY
+  /opt/spt/bin/s3proxy --console true --dir ${LOGDIR}/ \
+    --ttl $TTL --cache-dir $CACHE_DIR --port $PORT --threads $THREADS \
+    --region "$AWS_REGION" --bucket "$S3_BUCKET" \
+    --key "$AWS_KEY" --secret "$AWS_SECRET" \
+    --auth-key $AUTH_KEY $args
 }
 
-Check && Defaults && Service
+Check && Defaults && Extras && Service

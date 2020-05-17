@@ -31,6 +31,8 @@ int main( int argc, char const * const * argv )
       Opt(config->bucket, "bucket")["-b"]["--bucket"]("AWS bucket from which files are to be served") |
       Opt(config->mmdbHost, "mmdbHost")["-m"]["--mmdb-host"]("MMDB WebSocket service host. Disabled if not specified.") |
       Opt(config->mmdbPort, "mmdbPort")["-x"]["--mmdb-port"]("MMDB WebSocket service port (default 8010)") |
+      Opt(config->akumuli, "akumuliHost")["-y"]["--akumuli-host"]("Akumuli TSDB host. Disabled if not specified or if MMDB host is not specified.") |
+      Opt(config->akumuliPort, "akumuliPort")["-z"]["--akumuli-port"]("Akumuli RESP service port (default 8282)") |
       Opt(dir, "dir")["-o"]["--dir"]("Log directory (default logs/)");
 
   auto result = options.parse(clara::Args(argc, argv));
