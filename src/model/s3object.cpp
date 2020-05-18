@@ -7,7 +7,7 @@
 #include <sstream>
 #include <aws/core/utils/DateTime.h>
 
-using spt::util::S3Object;
+using spt::model::S3Object;
 
 std::string S3Object::str() const
 {

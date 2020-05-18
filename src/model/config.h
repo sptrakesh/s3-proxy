@@ -8,7 +8,7 @@
 #include <string>
 #include <thread>
 
-namespace spt::util
+namespace spt::model
 {
   struct Configuration
   {
@@ -22,6 +22,7 @@ namespace spt::util
     std::string cacheDir{ "/tmp" };
     std::string mmdbHost;
     std::string akumuli;
+    std::string metricPrefix{ "request" };
     int port = 8000;
     int mmdbPort = 8010;
     int akumuliPort = 8282;

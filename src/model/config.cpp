@@ -6,7 +6,7 @@
 
 #include <sstream>
 
-using spt::util::Configuration;
+using spt::model::Configuration;
 
 std::string Configuration::str() const
 {
@@ -19,14 +19,15 @@ std::string Configuration::str() const
     ", \"port\": " << port <<
     ", \"threads\": " << threads <<
     R"(, "mmdb": {"host": ")" << mmdbHost <<
-    R"(", "port":)" << mmdbPort << '}' <<
+    R"(", "port": )" << mmdbPort << '}' <<
     R"(, "akumuli": {"host": ")" << akumuli <<
-    R"(", "port":)" << akumuliPort << '}' <<
+    R"(", "prefix": ")" << metricPrefix <<
+    R"(", "port": )" << akumuliPort << '}' <<
     '}';
   return ss.str();
 }
 
-bool spt::util::publishMetrics( const Configuration& config )
+bool spt::model::publishMetrics( const Configuration& config )
 {
   return !config.mmdbHost.empty() && !config.akumuli.empty();
 }

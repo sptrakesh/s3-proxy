@@ -6,7 +6,6 @@
 #include "log/NanoLog.h"
 #include "util/cache.h"
 
-#include <mutex>
 #include <vector>
 
 #include <boost/algorithm/string/trim.hpp>
@@ -51,7 +50,7 @@ namespace spt::client::mmdb
 
   struct Worker
   {
-    Worker( util::Configuration::Ptr config ) : resolver{ ioc }, ws{ ioc },
+    Worker( model::Configuration::Ptr config ) : resolver{ ioc }, ws{ ioc },
       config{ std::move( config ) }
     {
     }
@@ -127,8 +126,6 @@ namespace spt::client::mmdb
       auto iter = cache.find( ip );
       if ( iter != cache.end() ) return iter->second;
 
-      std::lock_guard<std::mutex> guard( mutex );
-
       try
       {
         connect();
@@ -154,8 +151,7 @@ namespace spt::client::mmdb
     net::io_context ioc;
     tcp::resolver resolver;
     websocket::stream<tcp::socket> ws;
-    util::Configuration::Ptr config;
-    std::mutex mutex;
+    model::Configuration::Ptr config;
   };
 }
 
@@ -166,13 +162,13 @@ MMDBClient::~MMDBClient()
   delete worker;
 }
 
-MMDBClient& MMDBClient::instance( spt::util::Configuration::Ptr config )
+MMDBClient& MMDBClient::instance( spt::model::Configuration::Ptr config )
 {
   static MMDBClient client( std::move( config ) );
   return client;
 }
 
-MMDBClient::MMDBClient( spt::util::Configuration::Ptr config ) :
+MMDBClient::MMDBClient( spt::model::Configuration::Ptr config ) :
   worker{ new mmdb::Worker( std::move( config ) ) } {}
 
 MMDBClient::Properties MMDBClient::query( const std::string& ip )

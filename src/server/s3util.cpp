@@ -18,7 +18,7 @@
 
 using spt::server::S3Util;
 
-S3Util& S3Util::instance( util::Configuration::Ptr configuration )
+S3Util& S3Util::instance( model::Configuration::Ptr configuration )
 {
   Aws::InitAPI( {} );
   static S3Util instance{ std::move( configuration ) };
@@ -30,7 +30,7 @@ S3Util::~S3Util()
   Aws::ShutdownAPI( {} );
 }
 
-S3Util::S3Util( util::Configuration::Ptr config ) :
+S3Util::S3Util( model::Configuration::Ptr config ) :
     configuration{ std::move( config ) }
 {
   Aws::Client::ClientConfiguration clientConfig;
@@ -40,7 +40,7 @@ S3Util::S3Util( util::Configuration::Ptr config ) :
       clientConfig );
 }
 
-spt::util::S3Object::Ptr S3Util::get( const std::string& name )
+spt::model::S3Object::Ptr S3Util::get( const std::string& name )
 {
   try
   {
@@ -79,7 +79,7 @@ spt::util::S3Object::Ptr S3Util::get( const std::string& name )
       if ( Aws::Http::HttpResponseCode::NOT_FOUND == error.GetResponseCode() )
       {
         LOG_INFO << "Caching not-found state till TTL expires for " << name;
-        auto obj = std::make_shared<util::S3Object>();
+        auto obj = std::make_shared<model::S3Object>();
         obj->expires += std::chrono::seconds( configuration->ttl );
         cache.put( name, obj );
         return obj;
@@ -104,7 +104,7 @@ spt::util::S3Object::Ptr S3Util::get( const std::string& name )
     of << result.GetBody().rdbuf();
 
     std::filesystem::rename( target, fileName );
-    auto obj = std::make_shared<util::S3Object>();
+    auto obj = std::make_shared<model::S3Object>();
     obj->contentType = result.GetContentType();
     obj->fileName = fileName;
     obj->etag = result.GetETag();

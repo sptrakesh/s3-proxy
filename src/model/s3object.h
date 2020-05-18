@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-namespace spt::util
+namespace spt::model
 {
   struct S3Object
   {

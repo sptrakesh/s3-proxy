@@ -6,9 +6,9 @@
 
 #include "s3util.h"
 #include "log/NanoLog.h"
-#include "util/config.h"
-#include "util/metric.h"
-#include "util/queuemanager.h"
+#include "model/config.h"
+#include "model/metric.h"
+#include "queue/queuemanager.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/beast/core.hpp>
@@ -49,8 +49,7 @@ namespace spt::server
       class Body, class Allocator,
       class Send>
   void
-  handle_request(
-      const util::Configuration& config,
+  handle_request( const model::Configuration& config,
       http::request<Body, http::basic_fields<Allocator>>&& req,
       Send&& send, net::ip::address client )
   {
@@ -131,7 +130,7 @@ namespace spt::server
       return res;
     };
 
-    auto metric = util::Metric{};
+    auto metric = model::Metric{};
     const auto method = http::to_string( req.method() );
     metric.method = std::string{ method.data(), method.size() };
     metric.resource = std::string{ req.target().data(), req.target().size() };
@@ -148,7 +147,7 @@ namespace spt::server
         req.method() != http::verb::options )
     {
       metric.status = 405;
-      util::QueueManager::instance().publish( std::move( metric ) );
+      queue::QueueManager::instance().publish( std::move( metric ) );
       return send( not_allowed() );
     }
 
@@ -161,7 +160,7 @@ namespace spt::server
       res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
       res.keep_alive( req.keep_alive() );
       metric.status = 200;
-      util::QueueManager::instance().publish( std::move( metric ) );
+      queue::QueueManager::instance().publish( std::move( metric ) );
       return send( std::move( res ) );
     }
 
@@ -172,7 +171,7 @@ namespace spt::server
       if ( bearer.empty() )
       {
         metric.status = 403;
-        util::QueueManager::instance().publish( std::move( metric ) );
+        queue::QueueManager::instance().publish( std::move( metric ) );
         return send( forbidden() );
       }
 
@@ -180,7 +179,7 @@ namespace spt::server
       if ( !boost::algorithm::starts_with( bearer, prefix ) )
       {
         metric.status = 400;
-        util::QueueManager::instance().publish( std::move( metric ) );
+        queue::QueueManager::instance().publish( std::move( metric ) );
         return send( bad_request( "Invalid Authorization header" ) );
       }
 
@@ -190,13 +189,13 @@ namespace spt::server
       if ( S3Util::instance().clear( temp ) )
       {
         metric.status = 304;
-        util::QueueManager::instance().publish( std::move( metric ) );
+        queue::QueueManager::instance().publish( std::move( metric ) );
         return send( not_modified() );
       }
       else
       {
         metric.status = 403;
-        util::QueueManager::instance().publish( std::move( metric ) );
+        queue::QueueManager::instance().publish( std::move( metric ) );
         return send( forbidden() );
       }
     }
@@ -207,19 +206,23 @@ namespace spt::server
         req.target().find( ".." ) != beast::string_view::npos )
     {
       metric.status = 400;
-      util::QueueManager::instance().publish( std::move( metric ) );
+      queue::QueueManager::instance().publish( std::move( metric ) );
       return send( bad_request( "Illegal request-target" ));
     }
 
     std::string resource{ req.target().data(), req.target().size() };
-    if ( req.target().back() == '/' ) resource.append( "index.html" );
+    if ( req.target().back() == '/' )
+    {
+      resource.append( "index.html" );
+      metric.resource.append( "index.html" );
+    }
 
     auto downloaded = S3Util::instance().get( resource );
     if ( ! downloaded || downloaded->fileName.empty() )
     {
       LOG_WARN << "Error downloading resource " << resource;
       metric.status = 404;
-      util::QueueManager::instance().publish( std::move( metric ) );
+      queue::QueueManager::instance().publish( std::move( metric ) );
       return send( not_found( req.target() ) );
     }
     else
@@ -239,7 +242,7 @@ namespace spt::server
     if ( ec )
     {
       metric.status = 500;
-      util::QueueManager::instance().publish( std::move( metric ) );
+      queue::QueueManager::instance().publish( std::move( metric ) );
       return send( server_error( ec.message() ) );
     }
 
@@ -255,8 +258,9 @@ namespace spt::server
       http::response<http::empty_body> res{ http::status::ok, req.version() };
       res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
 
-      if ( downloaded->contentType.empty() ) res.set( http::field::content_type, mime_type( path ) );
-      else res.set( http::field::content_type, downloaded->contentType );
+      if ( downloaded->contentType.empty() ) metric.mimeType = mime_type( path ).to_string();
+      else metric.mimeType = downloaded->contentType;
+      res.set( http::field::content_type, metric.mimeType );
 
       if ( !downloaded->etag.empty() ) res.set( http::field::etag, downloaded->etag );
       res.set( http::field::expires, downloaded->expirationTime() );
@@ -266,7 +270,7 @@ namespace spt::server
       res.content_length( metric.size );
       res.keep_alive( req.keep_alive() );
       metric.status = 200;
-      util::QueueManager::instance().publish( std::move( metric ) );
+      queue::QueueManager::instance().publish( std::move( metric ) );
       return send( std::move( res ) );
     }
 
@@ -274,7 +278,7 @@ namespace spt::server
     if ( beast::string_view{ downloaded->etag } == ifmatch )
     {
       metric.status = 304;
-      util::QueueManager::instance().publish( std::move( metric ) );
+      queue::QueueManager::instance().publish( std::move( metric ) );
       return send( not_modified() );
     }
 
@@ -282,7 +286,7 @@ namespace spt::server
     if ( beast::string_view{ downloaded->lastModifiedTime() } == ifmodified )
     {
       metric.status = 304;
-      util::QueueManager::instance().publish( std::move( metric ) );
+      queue::QueueManager::instance().publish( std::move( metric ) );
       return send( not_modified() );
     }
 
@@ -304,7 +308,7 @@ namespace spt::server
     res.content_length( metric.size );
     res.keep_alive( req.keep_alive() );
     metric.status = 200;
-    util::QueueManager::instance().publish( std::move( metric ) );
+    queue::QueueManager::instance().publish( std::move( metric ) );
     return send( std::move( res ) );
   }
 
@@ -354,14 +358,14 @@ namespace spt::server
 
     beast::tcp_stream stream_;
     beast::flat_buffer buffer_;
-    util::Configuration* config;
+    model::Configuration* config;
     http::request<http::string_body> req_;
     std::shared_ptr<void> res_;
     send_lambda lambda_;
 
   public:
     // Take ownership of the socket
-    explicit session( tcp::socket&& socket, util::Configuration* config )
+    explicit session( tcp::socket&& socket, model::Configuration* config )
         : stream_( std::move( socket )), config( config ), lambda_( *this )
     {
     }
@@ -446,10 +450,10 @@ namespace spt::server
     net::io_context& ioc_;
     tcp::acceptor acceptor_;
     tcp::socket socket_;
-    util::Configuration* config;
+    model::Configuration* config;
 
   public:
-    listener( net::io_context& ioc, tcp::endpoint endpoint, util::Configuration* config )
+    listener( net::io_context& ioc, tcp::endpoint endpoint, model::Configuration* config )
         : ioc_( ioc ), acceptor_( net::make_strand( ioc )),
         socket_( net::make_strand( ioc )), config( std::move( config ) )
     {

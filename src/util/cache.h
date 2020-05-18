@@ -5,11 +5,11 @@
 #pragma once
 
 #include "ExpirationCache.h"
-#include "s3object.h"
+#include "model/s3object.h"
 
 namespace spt::util
 {
-  using MetadataCache = ExpirationCache<std::string, S3Object::Ptr, CACHE_TTL>;
+  using MetadataCache = ExpirationCache<std::string, model::S3Object::Ptr, CACHE_TTL>;
   using LocationCache = ExpirationCache<std::string, std::string, CACHE_TTL>;
 
   inline MetadataCache& getMetadataCache()

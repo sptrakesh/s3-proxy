@@ -4,7 +4,7 @@
 
 #include "akumuli.h"
 
-using wirepulse::akumuli::Akumuli;
+using spt::client::Akumuli;
 
 Akumuli::Akumuli( boost::asio::io_context& context, const std::string& host,
 int port ) : socket{ context }, reconnectTimer{ context }, deadline{ context }

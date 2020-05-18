@@ -7,7 +7,7 @@
 #include <chrono>
 #include <string>
 
-namespace spt::util
+namespace spt::model
 {
   struct Metric
   {
@@ -16,8 +16,10 @@ namespace spt::util
     Metric( Metric&& ) = default;
     Metric& operator=( Metric&& ) = default;
 
-    Metric( const Metric& ) = delete;
-    Metric& operator=( const Metric& ) = delete;
+    Metric( const Metric& ) = default;
+    Metric& operator=( const Metric& ) = default;
+
+    std::string str() const;
 
     std::string method;
     std::string resource;

@@ -3,9 +3,9 @@
 //
 
 #pragma once
-#include "util/config.h"
+#include "model/config.h"
 
 namespace spt::server
 {
-  int run( util::Configuration::Ptr configuration );
+  int run( model::Configuration::Ptr configuration );
 }

@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace wirepulse::akumuli
+namespace spt::client
 {
   using Tag = std::pair<std::string, std::string>;
   using Tags = std::vector<Tag>;

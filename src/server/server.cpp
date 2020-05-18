@@ -4,13 +4,15 @@
 
 #include "server.h"
 #include "stackless.h"
+#include "client/mmdb.h"
 #include "log/NanoLog.h"
-#include "util/queuemanager.h"
+#include "queue/poller.h"
+#include "queue/queuemanager.h"
 
 #include <iostream>
 #include <boost/asio/signal_set.hpp>
 
-int spt::server::run( util::Configuration::Ptr configuration )
+int spt::server::run( model::Configuration::Ptr configuration )
 {
   try
   {
@@ -27,8 +29,7 @@ int spt::server::run( util::Configuration::Ptr configuration )
           ioc.stop();
         });
 
-    util::QueueManager::instance( configuration );
-    //if ( !configuration->mmdbHost.empty() ) client::MMDBClient::instance( configuration );
+    queue::QueueManager::instance( configuration.get() );
 
     // Create and launch a listening port
     std::make_shared<listener>( ioc,
@@ -37,16 +38,26 @@ int spt::server::run( util::Configuration::Ptr configuration )
 
     // Run the I/O service on the requested number of threads
     std::vector<std::thread> v;
-    v.reserve( configuration->threads - 1 );
+    v.reserve( configuration->threads );
     for ( auto i = configuration->threads - 1; i > 0; --i )
     {
       v.emplace_back( [&ioc] { ioc.run(); } );
     }
+
+    auto poller = queue::Poller{ configuration };
+
+    if ( model::publishMetrics( *configuration ) )
+    {
+      client::MMDBClient::instance( configuration );
+      v.emplace_back( std::thread{ &spt::queue::Poller::run, &poller } );
+    }
+
     LOG_INFO << "HTTP service started";
 
     ioc.run();
     LOG_INFO << "HTTP service stopped";
 
+    poller.stop();
     for ( auto& t : v ) t.join();
 
     LOG_INFO << "All I/O threads stopped";

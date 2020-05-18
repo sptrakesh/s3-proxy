@@ -6,14 +6,14 @@
 
 #include "log/NanoLog.h"
 #include "server/server.h"
+#include "model/config.h"
 #include "util/clara.h"
-#include "util/config.h"
 
 int main( int argc, char const * const * argv )
 {
   using clara::Opt;
 
-  auto config = std::make_shared<spt::util::Configuration>();
+  auto config = std::make_shared<spt::model::Configuration>();
   bool console = false;
   std::string dir{"logs/"};
   bool help = false;
@@ -32,6 +32,7 @@ int main( int argc, char const * const * argv )
       Opt(config->mmdbHost, "mmdbHost")["-m"]["--mmdb-host"]("MMDB WebSocket service host. Disabled if not specified.") |
       Opt(config->mmdbPort, "mmdbPort")["-x"]["--mmdb-port"]("MMDB WebSocket service port (default 8010)") |
       Opt(config->akumuli, "akumuliHost")["-y"]["--akumuli-host"]("Akumuli TSDB host. Disabled if not specified or if MMDB host is not specified.") |
+      Opt(config->metricPrefix, "metricPrefix")["-e"]["--akumuli-metric-prefix"]("Akumuli metric prefix (default request)") |
       Opt(config->akumuliPort, "akumuliPort")["-z"]["--akumuli-port"]("Akumuli RESP service port (default 8282)") |
       Opt(dir, "dir")["-o"]["--dir"]("Log directory (default logs/)");
 

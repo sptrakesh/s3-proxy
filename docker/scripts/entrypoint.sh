@@ -75,22 +75,28 @@ Extras()
     echo "MMDB_HOST not set.  Akumuli and MMDB integration disabled"
   fi
 
+  if [ -z "$AKUMULI_HOST" ]
+  then
+    echo "AKUMULI_HOST not set.  Akumuli and MMDB integration disabled"
+  fi
+
   if [ -z "$AKUMULI_PORT" ]
   then
     AKUMULI_PORT=8282
     echo "AKUMULI_PORT not set.  Will default to $AKUMULI_PORT"
   fi
 
-  if [ -z "$AKUMULI_HOST" ]
+  if [ -z "$METRIC_PREFIX" ]
   then
-    echo "AKUMULI_HOST not set.  Akumuli and MMDB integration disabled"
+    METRIC_PREFIX="request"
+    echo "METRIC_PREFIX not set.  Will default to $METRIC_PREFIX"
   fi
 
   args=""
   if [ -n "$MMDB_HOST" ] && [ -n "$AKUMULI_HOST" ]
   then
     args="--mmdb-host $MMDB_HOST --mmdb-port $MMDB_PORT"
-    args="$args --akumuli-host $AKUMULI_HOST --akumuli-port $AKUMULI_PORT"
+    args="$args --akumuli-host $AKUMULI_HOST --akumuli-metric-prefix $METRIC_PREFIX --akumuli-port $AKUMULI_PORT"
   fi
 }
 

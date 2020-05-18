@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "util/config.h"
+#include "model/config.h"
 
 #include <unordered_map>
 
@@ -18,7 +18,7 @@ namespace spt::client
   class MMDBClient
   {
   public:
-    static MMDBClient& instance( util::Configuration::Ptr config = nullptr );
+    static MMDBClient& instance( model::Configuration::Ptr config = nullptr );
     ~MMDBClient();
 
     MMDBClient( const MMDBClient& ) = delete;
@@ -28,7 +28,7 @@ namespace spt::client
     Properties query( const std::string& ip );
 
   private:
-    explicit MMDBClient( util::Configuration::Ptr config );
+    explicit MMDBClient( model::Configuration::Ptr config );
 
     mmdb::Worker* worker = nullptr;
   };

@@ -10,7 +10,7 @@
 #include "timeseries.h"
 #include "log/NanoLog.h"
 
-namespace wirepulse::akumuli
+namespace spt::client
 {
   struct Akumuli
   {
