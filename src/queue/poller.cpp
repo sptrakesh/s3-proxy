@@ -30,6 +30,11 @@ namespace spt::queue::tsdb
 
     void save( const model::Metric& metric )
     {
+      //if ( ns > metric.time ) ns = std::chrono::nanoseconds{ ns.count() + 1 };
+      //else ns = metric.time;
+      ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+          std::chrono::system_clock::now().time_since_epoch() );
+
       saveCount( metric );
       saveSize( metric );
 
@@ -57,7 +62,7 @@ namespace spt::queue::tsdb
       tags.emplace_back( "ipaddress", metric.ipaddress );
       tags.emplace_back( "status", std::to_string( metric.status ) );
       if ( !metric.mimeType.empty() ) tags.emplace_back( "mimeType", metric.mimeType );
-      client.addSeries( client::IntegerSeries{ ss.str(), std::move( tags ), metric.time, 1 } );
+      client.addSeries( client::IntegerSeries{ ss.str(), std::move( tags ), ns, 1 } );
     }
 
     void saveSize( const model::Metric& metric )
@@ -74,16 +79,16 @@ namespace spt::queue::tsdb
       tags.emplace_back( "status", std::to_string( metric.status ) );
       if ( !metric.mimeType.empty() ) tags.emplace_back( "mimeType", metric.mimeType );
       client.addSeries( client::IntegerSeries{ ss.str(), std::move( tags ),
-          metric.time, int64_t( metric.size ) } );
+          ns, int64_t( metric.size ) } );
     }
 
     void saveLocation( const model::Metric& metric, client::MMDBClient::Properties & fields )
     {
-      const auto geojson = [&metric, &fields]()
+      const auto geojson = [this, &fields]()
       {
         const auto& lat = fields["latitude"];
         const auto& lng = fields["longitude"];
-        auto mms = std::chrono::duration_cast<std::chrono::microseconds>( metric.time );
+        auto mms = std::chrono::duration_cast<std::chrono::microseconds>( ns );
 
         std::ostringstream oss;
         oss << R"({"type": "geo:json", "value": {"type": "Point", "coordinates": [)" <<
@@ -113,7 +118,7 @@ namespace spt::queue::tsdb
       addTag( tags, fields, "country_iso_code" );
       addTag( tags, fields, "subdivision" );
 
-      client.addSeries( client::StringEvent{ ss.str(), std::move( tags ), metric.time, data } );
+      client.addSeries( client::StringEvent{ ss.str(), std::move( tags ), ns, data } );
     }
 
     void addTag( client::Tags& tags,
@@ -126,13 +131,14 @@ namespace spt::queue::tsdb
 
     client::Akumuli client;
     model::Configuration* configuration;
+    std::chrono::nanoseconds ns;
   };
 }
 
 using spt::queue::Poller;
 
-Poller::Poller( spt::model::Configuration::Ptr configuration ) :
-    configuration{ std::move( configuration ) } {}
+Poller::Poller( boost::asio::io_context& ioc, spt::model::Configuration::Ptr configuration ) :
+    ioc{ ioc }, configuration{ std::move( configuration ) } {}
 
 Poller::~Poller() = default;
 
@@ -154,26 +160,24 @@ void Poller::run()
     }
   }
 
-  ioc.stop();
   LOG_INFO << "Processed " << count << " total metrics from queue";
+}
+
+void spt::queue::Poller::stop()
+{
+  running.store( false );
+  LOG_INFO << "Stop requested";
 }
 
 void Poller::loop()
 {
-  auto msg = QueueManager::instance().get();
-  if ( msg )
+  auto& queue = QueueManager::instance();
+  while ( ! queue.empty() )
   {
-    LOG_DEBUG << "Retrieving payload from message";
-    auto metric = from( msg.get() );
-    if ( !metric )
-    {
-      LOG_WARN << "Unable to retrieve metric from payload";
-      return;
-    }
-
-    auto m = model::Metric{ *metric };
-    client->save( m );
-    //LOG_DEBUG << "Published metric: " << metric->str();
+    client->save( queue.front() );
+    queue.pop();
     if ( ( ++count % 100 ) == 0 ) LOG_INFO << "Published " << count << " metrics to TSDB";
   }
+  if ( running.load() ) std::this_thread::sleep_for( std::chrono::seconds( 5 ) );
 }
+

@@ -26,6 +26,6 @@ COPY --from=base /opt/spt/bin /opt/spt/bin
 COPY docker/scripts/entrypoint.sh /opt/spt/bin
 
 WORKDIR /opt/spt
-ENV LD_LIBRARY_PATH=/usr/lib:/opt/local/lib
+ENV LD_LIBRARY_PATH=/usr/lib
 USER spt
 ENTRYPOINT [ "/opt/spt/bin/entrypoint.sh" ]

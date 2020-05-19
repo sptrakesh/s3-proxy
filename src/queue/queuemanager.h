@@ -4,9 +4,11 @@
 
 #pragma once
 
-#include "polym/Queue.hpp"
 #include "model/config.h"
 #include "model/metric.h"
+
+#include <mutex>
+#include <queue>
 
 namespace spt::queue
 {
@@ -20,19 +22,20 @@ namespace spt::queue
     }
 
     void publish( model::Metric metric );
-    std::unique_ptr<PolyM::Msg> get();
+    bool empty() const;
+    const model::Metric& front() const;
+    void pop();
 
     ~QueueManager() = default;
     QueueManager( const QueueManager& ) = delete;
     QueueManager& operator=( const QueueManager& ) = delete;
 
   private:
-    explicit QueueManager( model::Configuration* configuration ) :
-      enabled{ model::publishMetrics( *configuration ) } {}
+    explicit QueueManager( model::Configuration* configuration );
 
-    PolyM::Queue queue;
-    bool enabled;
+    // Akumuli does not support out of sequence writes, so use a simple queue
+    std::queue<model::Metric> queue;
+    mutable std::mutex mutex;
+    const bool enabled;
   };
-
-  model::Metric* from( PolyM::Msg* msg );
 }

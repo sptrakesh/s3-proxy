@@ -102,12 +102,6 @@ Extras()
 
 Service()
 {
-  if [ ! -d $LOGDIR ]
-  then
-    mkdir -p $LOGDIR
-    chown spt:spt $LOGDIR
-  fi
-
   echo "Starting up AWS S3 proxy server"
   /opt/spt/bin/s3proxy --console true --dir ${LOGDIR}/ \
     --ttl $TTL --cache-dir $CACHE_DIR --port $PORT --threads $THREADS \

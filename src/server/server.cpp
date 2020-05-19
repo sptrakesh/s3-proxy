@@ -20,7 +20,7 @@ int spt::server::run( model::Configuration::Ptr configuration )
     LOG_INFO << "Initialised AWS S3 Util";
 
     auto const address = net::ip::make_address( "0.0.0.0" );
-    net::io_context ioc{ configuration->threads };
+    net::io_context ioc{ configuration->threads + 1 };
 
     net::signal_set signals(ioc, SIGINT, SIGTERM);
     signals.async_wait(
@@ -44,7 +44,7 @@ int spt::server::run( model::Configuration::Ptr configuration )
       v.emplace_back( [&ioc] { ioc.run(); } );
     }
 
-    auto poller = queue::Poller{ configuration };
+    auto poller = queue::Poller{ ioc, configuration };
 
     if ( model::publishMetrics( *configuration ) )
     {
@@ -53,10 +53,9 @@ int spt::server::run( model::Configuration::Ptr configuration )
     }
 
     LOG_INFO << "HTTP service started";
-
     ioc.run();
-    LOG_INFO << "HTTP service stopped";
 
+    LOG_INFO << "HTTP service stopped";
     poller.stop();
     for ( auto& t : v ) t.join();
 

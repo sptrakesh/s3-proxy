@@ -6,8 +6,8 @@
 
 using spt::client::Akumuli;
 
-Akumuli::Akumuli( boost::asio::io_context& context, const std::string& host,
-int port ) : socket{ context }, reconnectTimer{ context }, deadline{ context }
+Akumuli::Akumuli( boost::asio::io_context& context, const std::string& host, int port ) :
+  socket{ context }, reconnectTimer{ context }, deadline{ context }
 {
   boost::asio::ip::tcp::resolver resolver{ context };
   endpoints = resolver.resolve( host, std::to_string( port ));
@@ -112,7 +112,13 @@ void Akumuli::handleConnect( const boost::system::error_code& error,
 
 void Akumuli::doStop()
 {
-  socket.close();
+  boost::system::error_code ignored;
+  if ( socket.is_open() )
+  {
+    socket.shutdown( boost::asio::socket_base::shutdown_both, ignored );
+    if ( !ignored ) socket.close( ignored );
+    if ( ignored ) LOG_WARN << ignored.message();
+  }
   connected = false;
   reconnectTimer.expires_from_now( std::chrono::seconds{ 2 } );
   reconnectTimer.async_wait(

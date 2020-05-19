@@ -13,8 +13,7 @@ std::string spt::model::Metric::str() const
     R"(", "resource": ")" << resource <<
     R"(", "mimeType": ")" << mimeType <<
     R"(", "ipaddess": ")" << ipaddress <<
-    R"(", "time": )" << time.count() <<
-    ", \"size\": " << size <<
+    "\", \"size\": " << size <<
     ", \"status\": " << status <<
     '}';
   return oss.str();

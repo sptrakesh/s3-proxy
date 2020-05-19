@@ -21,19 +21,19 @@ namespace spt::queue
   class Poller
   {
   public:
-    explicit Poller( model::Configuration::Ptr configuration );
+    Poller( boost::asio::io_context& ioc, model::Configuration::Ptr configuration );
     ~Poller();
 
     Poller( const Poller& ) = delete;
     Poller& operator=( const Poller& ) = delete;
 
     void run();
-    void stop() { running.store( false ); }
+    void stop();
 
   private:
     void loop();
 
-    boost::asio::io_context ioc;
+    boost::asio::io_context& ioc;
     model::Configuration::Ptr configuration;
     std::unique_ptr<tsdb::TSDBClient> client;
     int64_t count = 0;

@@ -3,26 +3,41 @@
 //
 
 #include "queuemanager.h"
+#include "log/NanoLog.h"
 
 using spt::queue::QueueManager;
 using spt::model::Metric;
+
+QueueManager::QueueManager( spt::model::Configuration* configuration ) :
+    enabled{ model::publishMetrics( *configuration ) }
+{
+  LOG_INFO << "Queue manager initialised.  Enabled: " << enabled;
+}
 
 void QueueManager::publish( Metric metric )
 {
   if ( enabled )
   {
-    queue.put( PolyM::DataMsg<Metric>( metric.time.count(), std::move( metric ) ) );
+    std::lock_guard<std::mutex> lg{ mutex };
+    queue.push( std::move( metric ) );
   }
 }
 
-std::unique_ptr<PolyM::Msg> QueueManager::get()
+bool QueueManager::empty() const
 {
-  return enabled ? queue.get( 1000 ) : nullptr;
+  std::lock_guard<std::mutex> lg{ mutex };
+  return queue.empty();
 }
 
-Metric* spt::queue::from( PolyM::Msg* msg )
+const Metric& QueueManager::front() const
 {
-  if ( !msg ) return nullptr;
-  auto* dm = dynamic_cast<PolyM::DataMsg<Metric>*>( msg );
-  return dm ? &( dm->getPayload() ) : nullptr;
+  std::lock_guard<std::mutex> lg{ mutex };
+  return queue.front();
 }
+
+void QueueManager::pop()
+{
+  std::lock_guard<std::mutex> lg{ mutex };
+  queue.pop();
+}
+

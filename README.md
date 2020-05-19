@@ -162,5 +162,3 @@ to access the underlying *S3 bucket*.
 for the server.  I modified the implementation for daily rolling log files.
 * **[expirationCache](https://github.com/zapredelom/expirationCache)** - Cache
 manager for S3 object metadata.
-* **[PolyM](https://github.com/khuttun/PolyM)** - Simple in-process message queue
-for pushing visitor geo location data into [Akumuli](https://akumuli.org/) TSDB.

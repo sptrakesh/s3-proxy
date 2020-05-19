@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <chrono>
 #include <string>
 
 namespace spt::model
@@ -16,8 +15,8 @@ namespace spt::model
     Metric( Metric&& ) = default;
     Metric& operator=( Metric&& ) = default;
 
-    Metric( const Metric& ) = default;
-    Metric& operator=( const Metric& ) = default;
+    Metric( const Metric& ) = delete;
+    Metric& operator=( const Metric& ) = delete;
 
     std::string str() const;
 
@@ -25,8 +24,6 @@ namespace spt::model
     std::string resource;
     std::string mimeType;
     std::string ipaddress;
-    std::chrono::nanoseconds time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::system_clock::now().time_since_epoch() );
     std::size_t size;
     int status;
   };
