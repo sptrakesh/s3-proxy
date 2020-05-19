@@ -4,11 +4,9 @@
 
 #pragma once
 
+#include "concurrentqueue.h"
 #include "model/config.h"
 #include "model/metric.h"
-
-#include <mutex>
-#include <queue>
 
 namespace spt::queue
 {
@@ -22,9 +20,7 @@ namespace spt::queue
     }
 
     void publish( model::Metric metric );
-    bool empty() const;
-    const model::Metric& front() const;
-    void pop();
+    bool consume( model::Metric& metric );
 
     ~QueueManager() = default;
     QueueManager( const QueueManager& ) = delete;
@@ -34,8 +30,7 @@ namespace spt::queue
     explicit QueueManager( model::Configuration* configuration );
 
     // Akumuli does not support out of sequence writes, so use a simple queue
-    std::queue<model::Metric> queue;
-    mutable std::mutex mutex;
+    moodycamel::ConcurrentQueue<model::Metric> queue;
     const bool enabled;
   };
 }

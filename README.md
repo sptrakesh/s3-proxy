@@ -162,3 +162,5 @@ to access the underlying *S3 bucket*.
 for the server.  I modified the implementation for daily rolling log files.
 * **[expirationCache](https://github.com/zapredelom/expirationCache)** - Cache
 manager for S3 object metadata.
+* **[concurrentqueue](https://github.com/cameron314/concurrentqueue)** - Lock
+free concurrent queue implementation for metrics.

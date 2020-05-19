@@ -172,10 +172,10 @@ void spt::queue::Poller::stop()
 void Poller::loop()
 {
   auto& queue = QueueManager::instance();
-  while ( ! queue.empty() )
+  auto metric = model::Metric{};
+  while ( queue.consume( metric ) )
   {
-    client->save( queue.front() );
-    queue.pop();
+    client->save( metric );
     if ( ( ++count % 100 ) == 0 ) LOG_INFO << "Published " << count << " metrics to TSDB";
   }
   if ( running.load() ) std::this_thread::sleep_for( std::chrono::seconds( 5 ) );

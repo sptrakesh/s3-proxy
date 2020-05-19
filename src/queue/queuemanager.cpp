@@ -18,26 +18,12 @@ void QueueManager::publish( Metric metric )
 {
   if ( enabled )
   {
-    std::lock_guard<std::mutex> lg{ mutex };
-    queue.push( std::move( metric ) );
+    queue.enqueue( std::move( metric ) );
   }
 }
 
-bool QueueManager::empty() const
+bool QueueManager::consume( Metric& metric )
 {
-  std::lock_guard<std::mutex> lg{ mutex };
-  return queue.empty();
-}
-
-const Metric& QueueManager::front() const
-{
-  std::lock_guard<std::mutex> lg{ mutex };
-  return queue.front();
-}
-
-void QueueManager::pop()
-{
-  std::lock_guard<std::mutex> lg{ mutex };
-  queue.pop();
+  return queue.try_dequeue( metric );
 }
 
