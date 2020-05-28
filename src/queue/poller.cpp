@@ -177,7 +177,6 @@ void Poller::loop()
   {
     client->save( metric );
     if ( ( ++count % 100 ) == 0 ) LOG_INFO << "Published " << count << " metrics to TSDB";
-    //if ( ( count % 10 ) == 0 ) std::this_thread::sleep_for( std::chrono::milliseconds ( 10 ) );
   }
   if ( running.load() ) std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
 }
