@@ -148,13 +148,15 @@ This software has been developed mainly using work other people have contributed
 The following are the components used to build this software:
 * **[Boost:Beast](https://github.com/boostorg/beast)** - We use *Beast* for the
 `http` server implementation.  The implementation is a modified version of the
-[stackless](https://github.com/boostorg/beast/tree/develop/example/http/server/stackless)
+[async](https://github.com/boostorg/beast/tree/develop/example/http/server/async)
 example.
     * **Note:** I initially started with the [fast](https://github.com/boostorg/beast/tree/develop/example/http/server/fast)
     implementation.  That implementation seems to have some kind of race/locking
     issue which was very repeatable (service has been tested with `ab`).  Every
     16000 or so requests, the server would become unresponsive until the built
     in `30s` watch expired and requests were rejected.
+    * **Note:** After further testing, this seems to affect all beast examples.
+    Tried `stackless` and `async` with identical issues.
 * **[AWS SDK](https://github.com/aws/aws-sdk-cpp)** - We use the **S3** module
 to access the underlying *S3 bucket*.
 * **[Clara](https://github.com/catchorg/Clara)** - Command line options parser.
