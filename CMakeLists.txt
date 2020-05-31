@@ -35,7 +35,7 @@ set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_STATIC_RUNTIME ON)
 set(Boost_USE_MULTITHREADED ON)
 
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED COMPONENTS iostreams)
 set(OPENSSL_USE_STATIC_LIBS TRUE)
 
 if (APPLE)

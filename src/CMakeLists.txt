@@ -3,7 +3,7 @@ set(s3proxy_SRCS ${s3proxy_SRCS})
 add_executable(s3proxy ${s3proxy_SRCS} )
 
 target_link_libraries(s3proxy
-  PRIVATE ${AWSSDK_LINK_LIBRARIES} Boost::boost ${OPENSSL_LIBRARIES}
+  PRIVATE ${AWSSDK_LINK_LIBRARIES} Boost::boost Boost::iostreams ${OPENSSL_LIBRARIES} z
 )
 
 install(TARGETS s3proxy DESTINATION bin)

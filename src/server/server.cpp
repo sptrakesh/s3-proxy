@@ -215,6 +215,10 @@ namespace spt::server::impl
     metric.ipaddress = std::string{ ip.data(), ip.size() };
     LOG_DEBUG << "Request from " << metric.ipaddress;
 
+    const auto ch = req[http::field::accept_encoding];
+    const auto compressed = ( boost::algorithm::contains( ch, "gzip" ) );
+    LOG_DEBUG << "Compressed request " << ch.data() << " : " << compressed;
+
     // Make sure we can handle the method
     if ( req.method() != http::verb::get &&
         req.method() != http::verb::head &&
@@ -284,24 +288,22 @@ namespace spt::server::impl
       return send( bad_request( "Illegal request-target" ));
     }
 
-    std::string resource{ req.target().data(), req.target().size() };
     if ( req.target().back() == '/' )
     {
-      resource.append( "index.html" );
       metric.resource.append( "index.html" );
     }
 
-    auto downloaded = S3Util::instance().get( resource );
+    auto downloaded = S3Util::instance().get( metric.resource );
     if ( ! downloaded || downloaded->fileName.empty() )
     {
-      LOG_WARN << "Error downloading resource " << resource;
+      LOG_WARN << "Error downloading resource " << metric.resource;
       metric.status = 404;
       queue::QueueManager::instance().publish( std::move( metric ) );
       return send( not_found( req.target() ) );
     }
     else
     {
-      LOG_INFO << "Downloaded resource " << resource << " from S3\n" << downloaded->str();
+      LOG_INFO << "Downloaded resource " << metric.resource << " from S3\n" << downloaded->str();
     }
 
     // Attempt to open the file

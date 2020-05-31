@@ -13,6 +13,7 @@ std::string S3Object::str() const
 {
   std::ostringstream ss;
   ss << R"({"fileName": ")" << fileName <<
+     R"(", "compressed": ")" << fileNameCompressed <<
      R"(", "contentType": ")" << contentType <<
      R"(", "lastModified": ")" << lastModifiedTime() <<
      R"(", "contentLength": )" << contentLength <<
