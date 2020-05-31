@@ -106,6 +106,7 @@ spt::model::S3Object::Ptr S3Util::get( const std::string& name )
     auto result = outcome.GetResultWithOwnership();
     std::ofstream of{ target, std::ios::binary };
     of << result.GetBody().rdbuf();
+    of.close();
 
     std::string tgz;
     tgz.reserve( target.size() + 3 );

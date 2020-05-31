@@ -309,7 +309,14 @@ namespace spt::server::impl
     // Attempt to open the file
     beast::error_code ec;
     http::file_body::value_type body;
-    body.open( downloaded->fileName.c_str(), beast::file_mode::scan, ec );
+    if ( compressed )
+    {
+      body.open( downloaded->fileNameCompressed.c_str(), beast::file_mode::scan, ec );
+    }
+    else
+    {
+      body.open( downloaded->fileName.c_str(), beast::file_mode::scan, ec );
+    }
 
     // Handle the case where the file doesn't exist
     if ( ec == beast::errc::no_such_file_or_directory ) return send( not_found( req.target() ) );
@@ -322,8 +329,7 @@ namespace spt::server::impl
       return send( server_error( ec.message() ) );
     }
 
-    auto const size = downloaded->contentLength > 0 ? downloaded->contentLength : body.size();
-    metric.size = size;
+    metric.size = body.size();
 
     // Build the path to the requested file
     std::string path = path_cat( config->cacheDir, req.target() );
@@ -344,7 +350,7 @@ namespace spt::server::impl
       res.set( http::field::last_modified, downloaded->lastModifiedTime() );
       if ( !downloaded->cacheControl.empty() ) res.set( http::field::cache_control, downloaded->cacheControl );
 
-      res.content_length( size );
+      res.content_length( downloaded->contentLength );
       res.keep_alive( req.keep_alive() );
       metric.status = 200;
       queue::QueueManager::instance().publish( std::move( metric ) );
@@ -374,6 +380,7 @@ namespace spt::server::impl
         std::make_tuple( http::status::ok, req.version()) };
     res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
 
+    if ( compressed ) res.set( http::field::content_encoding, "gzip" );
     if ( downloaded->contentType.empty() ) res.set( http::field::content_type, mime_type( path ) );
     else res.set( http::field::content_type, downloaded->contentType );
 
@@ -382,7 +389,7 @@ namespace spt::server::impl
     res.set( http::field::last_modified, downloaded->lastModifiedTime() );
     if ( !downloaded->cacheControl.empty() ) res.set( http::field::cache_control, downloaded->cacheControl );
 
-    res.content_length( size );
+    res.content_length( metric.size );
     res.keep_alive( req.keep_alive() );
     metric.status = 200;
     queue::QueueManager::instance().publish( std::move( metric ) );
