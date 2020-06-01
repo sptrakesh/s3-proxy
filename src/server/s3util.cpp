@@ -5,6 +5,7 @@
 #include "s3util.h"
 #include "log/NanoLog.h"
 #include "util/cache.h"
+#include "util/compress.h"
 
 #include <chrono>
 #include <filesystem>
@@ -92,18 +93,26 @@ spt::model::S3Object::Ptr S3Util::get( const std::string& name )
     const auto fileName = ss.str();
 
     const auto now = std::chrono::system_clock::now();
-    const auto us = std::chrono::duration_cast<std::chrono::microseconds>( now.time_since_epoch() );
+    const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>( now.time_since_epoch() );
     std::string target;
-    target.reserve( fileName.size() + 16 );
+    target.reserve( fileName.size() + 32 );
     target.append( fileName );
     target.append( "." );
-    target.append( std::to_string( us.count() ) );
+    target.append( std::to_string( ns.count() ) );
 
     auto result = outcome.GetResultWithOwnership();
     std::ofstream of{ target, std::ios::binary };
     of << result.GetBody().rdbuf();
+    of.close();
+
+    const auto tgz = util::compressedFileName( fileName );
+    if ( std::filesystem::exists( tgz ) )
+    {
+      util::compress( target, tgz );
+    }
 
     std::filesystem::rename( target, fileName );
+
     auto obj = std::make_shared<model::S3Object>();
     obj->contentType = result.GetContentType();
     obj->fileName = fileName;

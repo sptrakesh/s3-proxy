@@ -8,7 +8,9 @@
 #include "log/NanoLog.h"
 #include "queue/poller.h"
 #include "queue/queuemanager.h"
+#include "util/compress.h"
 
+#include <filesystem>
 #include <iostream>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -215,6 +217,10 @@ namespace spt::server::impl
     metric.ipaddress = std::string{ ip.data(), ip.size() };
     LOG_DEBUG << "Request from " << metric.ipaddress;
 
+    const auto ch = req[http::field::accept_encoding];
+    const auto compressed = ( boost::algorithm::contains( ch, "gzip" ) );
+    LOG_DEBUG << "Compressed request " << ch.data() << " : " << compressed;
+
     // Make sure we can handle the method
     if ( req.method() != http::verb::get &&
         req.method() != http::verb::head &&
@@ -284,30 +290,40 @@ namespace spt::server::impl
       return send( bad_request( "Illegal request-target" ));
     }
 
-    std::string resource{ req.target().data(), req.target().size() };
     if ( req.target().back() == '/' )
     {
-      resource.append( "index.html" );
       metric.resource.append( "index.html" );
     }
 
-    auto downloaded = S3Util::instance().get( resource );
+    auto downloaded = S3Util::instance().get( metric.resource );
     if ( ! downloaded || downloaded->fileName.empty() )
     {
-      LOG_WARN << "Error downloading resource " << resource;
+      LOG_WARN << "Error downloading resource " << metric.resource;
       metric.status = 404;
       queue::QueueManager::instance().publish( std::move( metric ) );
       return send( not_found( req.target() ) );
     }
     else
     {
-      LOG_INFO << "Downloaded resource " << resource << " from S3\n" << downloaded->str();
+      LOG_INFO << "Downloaded resource " << metric.resource << " from S3\n" << downloaded->str();
     }
 
     // Attempt to open the file
     beast::error_code ec;
     http::file_body::value_type body;
-    body.open( downloaded->fileName.c_str(), beast::file_mode::scan, ec );
+    if ( compressed )
+    {
+      const auto fn = util::compressedFileName( downloaded->fileName );
+      if ( !std::filesystem::exists( fn ) )
+      {
+        util::compress( downloaded->fileName, fn );
+      }
+      body.open( fn.c_str(), beast::file_mode::scan, ec );
+    }
+    else
+    {
+      body.open( downloaded->fileName.c_str(), beast::file_mode::scan, ec );
+    }
 
     // Handle the case where the file doesn't exist
     if ( ec == beast::errc::no_such_file_or_directory ) return send( not_found( req.target() ) );
@@ -320,8 +336,7 @@ namespace spt::server::impl
       return send( server_error( ec.message() ) );
     }
 
-    auto const size = downloaded->contentLength > 0 ? downloaded->contentLength : body.size();
-    metric.size = size;
+    metric.size = body.size();
 
     // Build the path to the requested file
     std::string path = path_cat( config->cacheDir, req.target() );
@@ -342,7 +357,7 @@ namespace spt::server::impl
       res.set( http::field::last_modified, downloaded->lastModifiedTime() );
       if ( !downloaded->cacheControl.empty() ) res.set( http::field::cache_control, downloaded->cacheControl );
 
-      res.content_length( size );
+      res.content_length( downloaded->contentLength );
       res.keep_alive( req.keep_alive() );
       metric.status = 200;
       queue::QueueManager::instance().publish( std::move( metric ) );
@@ -372,6 +387,7 @@ namespace spt::server::impl
         std::make_tuple( http::status::ok, req.version()) };
     res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
 
+    if ( compressed ) res.set( http::field::content_encoding, "gzip" );
     if ( downloaded->contentType.empty() ) res.set( http::field::content_type, mime_type( path ) );
     else res.set( http::field::content_type, downloaded->contentType );
 
@@ -380,7 +396,7 @@ namespace spt::server::impl
     res.set( http::field::last_modified, downloaded->lastModifiedTime() );
     if ( !downloaded->cacheControl.empty() ) res.set( http::field::cache_control, downloaded->cacheControl );
 
-    res.content_length( size );
+    res.content_length( metric.size );
     res.keep_alive( req.keep_alive() );
     metric.status = 200;
     queue::QueueManager::instance().publish( std::move( metric ) );

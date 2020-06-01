@@ -26,5 +26,6 @@ namespace spt::model
     std::string ipaddress;
     std::size_t size;
     int status;
+    bool compressed;
   };
 }

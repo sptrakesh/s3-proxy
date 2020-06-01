@@ -15,6 +15,7 @@ std::string spt::model::Metric::str() const
     R"(", "ipaddess": ")" << ipaddress <<
     "\", \"size\": " << size <<
     ", \"status\": " << status <<
+    ", \"compressed\": " << std::boolalpha << compressed <<
     '}';
   return oss.str();
 }
