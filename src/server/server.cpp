@@ -112,6 +112,30 @@ namespace spt::server::impl
     return result;
   }
 
+  bool should_compress( beast::string_view path )
+  {
+    using beast::iequals;
+    auto const ext = [&path]
+    {
+      auto const pos = path.rfind( "." );
+      if ( pos == beast::string_view::npos )
+        return beast::string_view{};
+      return path.substr( pos );
+    }();
+    if ( iequals( ext, ".htm" )) return true;
+    if ( iequals( ext, ".html" )) return true;
+    if ( iequals( ext, ".php" )) return true;
+    if ( iequals( ext, ".css" )) return true;
+    if ( iequals( ext, ".txt" )) return true;
+    if ( iequals( ext, ".js" )) return true;
+    if ( iequals( ext, ".json" )) return true;
+    if ( iequals( ext, ".xml" )) return true;
+    if ( iequals( ext, ".docx" )) return true;
+    if ( iequals( ext, ".xlsx" )) return true;
+    if ( iequals( ext, ".pptx" )) return true;
+    return false;
+  }
+
   void fail( beast::error_code ec, char const* what )
   {
     LOG_WARN << what << ": " << ec.message();
@@ -217,10 +241,6 @@ namespace spt::server::impl
     metric.ipaddress = std::string{ ip.data(), ip.size() };
     LOG_DEBUG << "Request from " << metric.ipaddress;
 
-    const auto ch = req[http::field::accept_encoding];
-    const auto compressed = ( boost::algorithm::contains( ch, "gzip" ) );
-    LOG_DEBUG << "Compressed request " << ch.data() << " : " << compressed;
-
     // Make sure we can handle the method
     if ( req.method() != http::verb::get &&
         req.method() != http::verb::head &&
@@ -308,6 +328,18 @@ namespace spt::server::impl
       LOG_INFO << "Downloaded resource " << metric.resource << " from S3\n" << downloaded->str();
     }
 
+    // Build the path to the requested file
+    std::string path = path_cat( config->cacheDir, req.target() );
+    if ( req.target().back() == '/' ) path.append( "index.html" );
+
+    if ( downloaded->contentType.empty() ) metric.mimeType = mime_type( path ).to_string();
+    else metric.mimeType = downloaded->contentType;
+
+    const auto ch = req[http::field::accept_encoding];
+    const auto compressed = ( boost::algorithm::contains( ch, "gzip" ) ) &&
+        should_compress( path );
+    LOG_DEBUG << "Compressed request " << ch.data() << " : " << compressed;
+
     // Attempt to open the file
     beast::error_code ec;
     http::file_body::value_type body;
@@ -338,18 +370,12 @@ namespace spt::server::impl
 
     metric.size = body.size();
 
-    // Build the path to the requested file
-    std::string path = path_cat( config->cacheDir, req.target() );
-    if ( req.target().back() == '/' ) path.append( "index.html" );
-
     // Respond to HEAD request
     if ( req.method() == http::verb::head )
     {
       http::response<http::empty_body> res{ http::status::ok, req.version() };
       res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
 
-      if ( downloaded->contentType.empty() ) metric.mimeType = mime_type( path ).to_string();
-      else metric.mimeType = downloaded->contentType;
       res.set( http::field::content_type, metric.mimeType );
 
       if ( !downloaded->etag.empty() ) res.set( http::field::etag, downloaded->etag );
@@ -388,8 +414,7 @@ namespace spt::server::impl
     res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
 
     if ( compressed ) res.set( http::field::content_encoding, "gzip" );
-    if ( downloaded->contentType.empty() ) res.set( http::field::content_type, mime_type( path ) );
-    else res.set( http::field::content_type, downloaded->contentType );
+    res.set( http::field::content_type, metric.mimeType );
 
     if ( !downloaded->etag.empty() ) res.set( http::field::etag, downloaded->etag );
     res.set( http::field::expires, downloaded->expirationTime() );
