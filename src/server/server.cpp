@@ -8,7 +8,9 @@
 #include "log/NanoLog.h"
 #include "queue/poller.h"
 #include "queue/queuemanager.h"
+#include "util/compress.h"
 
+#include <filesystem>
 #include <iostream>
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -311,7 +313,12 @@ namespace spt::server::impl
     http::file_body::value_type body;
     if ( compressed )
     {
-      body.open( downloaded->fileNameCompressed.c_str(), beast::file_mode::scan, ec );
+      const auto fn = util::compressedFileName( downloaded->fileName );
+      if ( !std::filesystem::exists( fn ) )
+      {
+        util::compress( downloaded->fileName, fn );
+      }
+      body.open( fn.c_str(), beast::file_mode::scan, ec );
     }
     else
     {

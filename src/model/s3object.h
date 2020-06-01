@@ -28,7 +28,6 @@ namespace spt::model
 
     std::string contentType;
     std::string fileName;
-    std::string fileNameCompressed;
     std::string etag;
     std::string cacheControl;
     std::chrono::time_point<std::chrono::system_clock> expires = std::chrono::system_clock::now();

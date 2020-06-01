@@ -5,6 +5,7 @@
 #include "s3util.h"
 #include "log/NanoLog.h"
 #include "util/cache.h"
+#include "util/compress.h"
 
 #include <chrono>
 #include <filesystem>
@@ -15,10 +16,6 @@
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/s3/model/GetObjectRequest.h>
-
-#include <boost/iostreams/filtering_streambuf.hpp>
-#include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
 
 using spt::server::S3Util;
 
@@ -96,41 +93,29 @@ spt::model::S3Object::Ptr S3Util::get( const std::string& name )
     const auto fileName = ss.str();
 
     const auto now = std::chrono::system_clock::now();
-    const auto us = std::chrono::duration_cast<std::chrono::nanoseconds>( now.time_since_epoch() );
+    const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>( now.time_since_epoch() );
     std::string target;
     target.reserve( fileName.size() + 32 );
     target.append( fileName );
     target.append( "." );
-    target.append( std::to_string( us.count() ) );
+    target.append( std::to_string( ns.count() ) );
 
     auto result = outcome.GetResultWithOwnership();
     std::ofstream of{ target, std::ios::binary };
     of << result.GetBody().rdbuf();
     of.close();
 
-    std::string tgz;
-    tgz.reserve( target.size() + 3 );
-    tgz.append( target );
-    tgz.append( ".gz" );
-    std::ifstream inStream( target, std::ios_base::in | std::ios::binary );
-    std::ofstream outStream( tgz, std::ios_base::out | std::ios_base::binary );
-    boost::iostreams::filtering_streambuf<boost::iostreams::input> in;
-    in.push( boost::iostreams::gzip_compressor() );
-    in.push( inStream );
-    boost::iostreams::copy( in, outStream );
-
-    std::string fngz;
-    fngz.reserve( fileName.size() + 3 );
-    fngz.append( fileName );
-    fngz.append( ".gz" );
+    const auto tgz = util::compressedFileName( fileName );
+    if ( std::filesystem::exists( tgz ) )
+    {
+      util::compress( target, tgz );
+    }
 
     std::filesystem::rename( target, fileName );
-    std::filesystem::rename( tgz, fngz );
 
     auto obj = std::make_shared<model::S3Object>();
     obj->contentType = result.GetContentType();
     obj->fileName = fileName;
-    obj->fileNameCompressed = fngz;
     obj->etag = result.GetETag();
     obj->cacheControl = result.GetCacheControl();
     if ( obj->cacheControl.empty() )
