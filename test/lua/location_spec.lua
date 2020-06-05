@@ -61,7 +61,7 @@ describe("Access proxy server from multiple IP addresses", function()
   };
 
   it("Access proxy server with random IP addresses", function()
-    for i = 1, 1000
+    for _ = 1, 1000
     do
       local ip = ips[ math.random( #ips ) ]
       log.info("Requesting as IP address: ", ip)
