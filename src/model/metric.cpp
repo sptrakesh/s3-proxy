@@ -13,9 +13,10 @@ std::string spt::model::Metric::str() const
     R"(", "resource": ")" << resource <<
     R"(", "mimeType": ")" << mimeType <<
     R"(", "ipaddess": ")" << ipaddress <<
-    "\", \"size\": " << size <<
+    R"(", "size": )" << size <<
     ", \"status\": " << status <<
     ", \"compressed\": " << std::boolalpha << compressed <<
+    ", \"time\": " << time <<
     '}';
   return oss.str();
 }

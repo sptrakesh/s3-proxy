@@ -10,6 +10,7 @@
 #include "queue/queuemanager.h"
 #include "util/compress.h"
 
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 
@@ -230,6 +231,7 @@ namespace spt::server::impl
       return res;
     };
 
+    const auto st = std::chrono::steady_clock::now();
     auto metric = model::Metric{};
     const auto method = http::to_string( req.method() );
     metric.method = std::string{ method.data(), method.size() };
@@ -247,6 +249,9 @@ namespace spt::server::impl
         req.method() != http::verb::options )
     {
       metric.status = 405;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
       return send( not_allowed() );
     }
@@ -260,6 +265,9 @@ namespace spt::server::impl
       res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
       res.keep_alive( req.keep_alive() );
       metric.status = 200;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
       return send( std::move( res ) );
     }
@@ -271,6 +279,9 @@ namespace spt::server::impl
       if ( bearer.empty() )
       {
         metric.status = 403;
+        const auto et = std::chrono::steady_clock::now();
+        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+        metric.time = delta.count();
         queue::QueueManager::instance().publish( std::move( metric ) );
         return send( forbidden() );
       }
@@ -279,6 +290,9 @@ namespace spt::server::impl
       if ( !boost::algorithm::starts_with( bearer, prefix ) )
       {
         metric.status = 400;
+        const auto et = std::chrono::steady_clock::now();
+        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+        metric.time = delta.count();
         queue::QueueManager::instance().publish( std::move( metric ) );
         return send( bad_request( "Invalid Authorization header" ) );
       }
@@ -289,12 +303,18 @@ namespace spt::server::impl
       if ( S3Util::instance().clear( temp ) )
       {
         metric.status = 304;
+        const auto et = std::chrono::steady_clock::now();
+        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+        metric.time = delta.count();
         queue::QueueManager::instance().publish( std::move( metric ) );
         return send( not_modified() );
       }
       else
       {
         metric.status = 403;
+        const auto et = std::chrono::steady_clock::now();
+        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+        metric.time = delta.count();
         queue::QueueManager::instance().publish( std::move( metric ) );
         return send( forbidden() );
       }
@@ -306,6 +326,9 @@ namespace spt::server::impl
         req.target().find( ".." ) != beast::string_view::npos )
     {
       metric.status = 400;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
       return send( bad_request( "Illegal request-target" ));
     }
@@ -320,6 +343,9 @@ namespace spt::server::impl
     {
       LOG_WARN << "Error downloading resource " << metric.resource;
       metric.status = 404;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
       return send( not_found( req.target() ) );
     }
@@ -358,12 +384,23 @@ namespace spt::server::impl
     }
 
     // Handle the case where the file doesn't exist
-    if ( ec == beast::errc::no_such_file_or_directory ) return send( not_found( req.target() ) );
+    if ( ec == beast::errc::no_such_file_or_directory )
+    {
+      metric.status = 404;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
+      queue::QueueManager::instance().publish( std::move( metric ) );
+      return send( not_found( req.target() ) );
+    }
 
     // Handle an unknown error
     if ( ec )
     {
       metric.status = 500;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
       return send( server_error( ec.message() ) );
     }
@@ -386,6 +423,9 @@ namespace spt::server::impl
       res.content_length( downloaded->contentLength );
       res.keep_alive( req.keep_alive() );
       metric.status = 200;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
       return send( std::move( res ) );
     }
@@ -394,6 +434,9 @@ namespace spt::server::impl
     if ( beast::string_view{ downloaded->etag } == ifmatch )
     {
       metric.status = 304;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
       return send( not_modified() );
     }
@@ -402,6 +445,9 @@ namespace spt::server::impl
     if ( beast::string_view{ downloaded->lastModifiedTime() } == ifmodified )
     {
       metric.status = 304;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
       return send( not_modified() );
     }
@@ -424,6 +470,9 @@ namespace spt::server::impl
     res.content_length( metric.size );
     res.keep_alive( req.keep_alive() );
     metric.status = 200;
+    const auto et = std::chrono::steady_clock::now();
+    const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+    metric.time = delta.count();
     queue::QueueManager::instance().publish( std::move( metric ) );
     return send( std::move( res ) );
   }
