@@ -10,6 +10,8 @@
 #include "util/date.h"
 
 #include <boost/algorithm/string/replace.hpp>
+
+#include <chrono>
 #include <sstream>
 
 namespace spt::queue::tsdb
@@ -37,6 +39,7 @@ namespace spt::queue::tsdb
 
       saveCount( metric );
       saveSize( metric );
+      saveTime( metric );
 
       auto fields = client::MMDBClient::instance().query( metric.ipaddress );
       if ( fields.empty() )
@@ -80,6 +83,26 @@ namespace spt::queue::tsdb
       if ( !metric.mimeType.empty() ) tags.emplace_back( "mimeType", metric.mimeType );
       client.addSeries( client::IntegerSeries{ ss.str(), std::move( tags ),
           ns, int64_t( metric.size ) } );
+    }
+
+    void saveTime( const model::Metric& metric )
+    {
+      std::ostringstream ss;
+      ss << configuration->metricPrefix;
+      ss << ".time";
+
+      auto nanos = std::chrono::nanoseconds{ metric.time };
+      auto millis = std::chrono::duration_cast<std::chrono::milliseconds>( nanos );
+
+      auto tags = client::Tags{};
+      tags.reserve( 5 );
+      tags.emplace_back( "method", metric.method );
+      tags.emplace_back( "resource", metric.resource );
+      tags.emplace_back( "ipaddress", metric.ipaddress );
+      tags.emplace_back( "status", std::to_string( metric.status ) );
+      if ( !metric.mimeType.empty() ) tags.emplace_back( "mimeType", metric.mimeType );
+      client.addSeries( client::IntegerSeries{ ss.str(), std::move( tags ),
+          ns, millis.count() } );
     }
 
     void saveLocation( const model::Metric& metric, client::MMDBClient::Properties & fields )

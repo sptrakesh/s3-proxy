@@ -25,6 +25,7 @@ namespace spt::model
     std::string mimeType;
     std::string ipaddress;
     std::size_t size;
+    int64_t time;
     int status;
     bool compressed;
   };
