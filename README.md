@@ -53,6 +53,10 @@ rotated daily.  Default `logs/` directory under the current working directory.
 is desired, specify the hostname for the service.
 * `--mmdb-port` - Port on which the `mmdb-ws` service is listening.  Default is
 `8010`.  Only relevant if `--mmdb-host` is specified.
+* `--akumuli-host` - If metrics are to be published to [Akumuli](https://akumuli.org/).
+Works in combination with `--mmdb-host`.
+* `--akumuli-port` - Port on which *Akumuli* TCP write service listens.  Default
+is `8282`.
 
 Full list of options can always be consulted by running the following:
 
