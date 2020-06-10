@@ -41,6 +41,7 @@ set(OPENSSL_USE_STATIC_LIBS TRUE)
 if (APPLE)
   find_package(OpenSSL REQUIRED)
 endif()
+find_package(libmongocxx-static REQUIRED)
 find_package(Threads)
 find_package(AWSSDK REQUIRED COMPONENTS s3)
 
@@ -49,6 +50,7 @@ if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 include_directories(
+  ${LIBMONGOCXX_STATIC_INCLUDE_DIRS}
   ${OPENSSL_INCLUDE_DIR}
 )
 
