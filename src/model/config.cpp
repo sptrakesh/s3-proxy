@@ -23,11 +23,14 @@ std::string Configuration::str() const
     R"(, "akumuli": {"host": ")" << akumuli <<
     R"(", "prefix": ")" << metricPrefix <<
     R"(", "port": )" << akumuliPort << '}' <<
+    R"(, "mongo": {"uri": ")" << mongoUri <<
+    R"(", "database": ")" << mongoDatabase <<
+    R"(", "collection": ")" << mongoCollection << "\"}" <<
     '}';
   return ss.str();
 }
 
 bool spt::model::publishMetrics( const Configuration& config )
 {
-  return !config.mmdbHost.empty() && !config.akumuli.empty();
+  return !config.mmdbHost.empty() && (!config.akumuli.empty() || !config.mongoUri.empty());
 }

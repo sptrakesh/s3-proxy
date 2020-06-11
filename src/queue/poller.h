@@ -15,6 +15,7 @@ namespace spt::queue
 {
   namespace tsdb
   {
+    struct MongoClient;
     struct TSDBClient;
   }
 
@@ -35,7 +36,8 @@ namespace spt::queue
 
     boost::asio::io_context& ioc;
     model::Configuration::Ptr configuration;
-    std::unique_ptr<tsdb::TSDBClient> client;
+    std::unique_ptr<tsdb::MongoClient> mongo;
+    std::unique_ptr<tsdb::TSDBClient> tsdb;
     int64_t count = 0;
     std::atomic_bool running;
   };

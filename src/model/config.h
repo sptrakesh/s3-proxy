@@ -31,6 +31,9 @@ namespace spt::model
     std::string mmdbHost;
     std::string akumuli;
     std::string metricPrefix{ "request" };
+    std::string mongoUri;
+    std::string mongoDatabase{ "metrics" };
+    std::string mongoCollection{ "request" };
     int port = 8000;
     int mmdbPort = 8010;
     int akumuliPort = 8282;

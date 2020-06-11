@@ -1,6 +1,6 @@
 FROM sptrakesh/aws-sdk-s3 as aws
 
-FROM sptrakesh/boost as base
+FROM sptrakesh/mongocxx-boost as base
 
 COPY --from=aws /opt/local /opt/local
 COPY CMakeLists.txt /opt/spt/s3-proxy/CMakeLists.txt
@@ -12,7 +12,6 @@ RUN apk add --no-cache curl-dev \
   && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/local .. \
   && make -j8 \
   && make install
-
 
 FROM sptrakesh/cppruntime
 

@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <mongocxx/instance.hpp>
 
 #include "log/NanoLog.h"
 #include "server/server.h"
@@ -34,6 +35,9 @@ int main( int argc, char const * const * argv )
       Opt(config->akumuli, "akumuliHost")["-y"]["--akumuli-host"]("Akumuli TSDB host. Disabled if not specified or if MMDB host is not specified.") |
       Opt(config->metricPrefix, "metricPrefix")["-e"]["--akumuli-metric-prefix"]("Akumuli metric prefix (default request)") |
       Opt(config->akumuliPort, "akumuliPort")["-z"]["--akumuli-port"]("Akumuli RESP service port (default 8282)") |
+      Opt(config->mongoUri, "mongoUri")["-f"]["--mongo-uri"]("MongoDB connection uri. Disabled if not specified or if MMDB host is not specified.") |
+      Opt(config->mongoDatabase, "mongoDatabase")["-g"]["--mongo-database"]("MongoDB database to write metrics to (default metrics)") |
+      Opt(config->mongoCollection, "mongoCollection")["-i"]["--mongo-collection"]("MongoDB collection to write metrics to (default request)") |
       Opt(dir, "dir")["-o"]["--dir"]("Log directory (default logs/)");
 
   auto result = options.parse(clara::Args(argc, argv));
@@ -55,6 +59,7 @@ int main( int argc, char const * const * argv )
     "dir: " << dir << '\n';
 
   nanolog::initialize( nanolog::GuaranteedLogger(), dir, "s3-proxy", console );
+  mongocxx::instance instance{};
 
   return spt::server::run( config );
 }
