@@ -47,6 +47,7 @@ namespace spt::queue::tsdb
 
       try
       {
+        auto us = std::chrono::duration_cast<std::chrono::milliseconds>( metric.timestamp.time_since_epoch() );
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>( metric.timestamp.time_since_epoch() ).count();
 
         auto doc = document{};
@@ -58,7 +59,8 @@ namespace spt::queue::tsdb
             "time" << metric.time <<
             "status" << metric.status <<
             "compressed" << metric.compressed <<
-            "timestamp" << ns;
+            "timestamp" << ns <<
+            "created" << bsoncxx::types::b_date( us );
 
         if ( !fields.empty() )
         {
@@ -110,7 +112,7 @@ namespace spt::queue::tsdb
       client.stop();
     }
 
-    void save( const model::Metric& metric, client::MMDBClient::Properties& fields )
+    void save( const model::Metric& metric, const client::MMDBClient::Properties& fields )
     {
       ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
           std::chrono::system_clock::now().time_since_epoch() );
@@ -131,7 +133,7 @@ namespace spt::queue::tsdb
       auto tags = client::Tags{};
       tags.reserve( 5 );
       tags.emplace_back( "method", metric.method );
-      tags.emplace_back( "resource", metric.resource );
+      tags.emplace_back( "resource", resource( metric ) );
       tags.emplace_back( "ipaddress", metric.ipaddress );
       tags.emplace_back( "status", std::to_string( metric.status ) );
       if ( !metric.mimeType.empty() ) tags.emplace_back( "mimeType", metric.mimeType );
@@ -147,7 +149,7 @@ namespace spt::queue::tsdb
       auto tags = client::Tags{};
       tags.reserve( 5 );
       tags.emplace_back( "method", metric.method );
-      tags.emplace_back( "resource", metric.resource );
+      tags.emplace_back( "resource", resource( metric ) );
       tags.emplace_back( "ipaddress", metric.ipaddress );
       tags.emplace_back( "status", std::to_string( metric.status ) );
       if ( !metric.mimeType.empty() ) tags.emplace_back( "mimeType", metric.mimeType );
@@ -167,7 +169,7 @@ namespace spt::queue::tsdb
       auto tags = client::Tags{};
       tags.reserve( 5 );
       tags.emplace_back( "method", metric.method );
-      tags.emplace_back( "resource", metric.resource );
+      tags.emplace_back( "resource", resource( metric ) );
       tags.emplace_back( "ipaddress", metric.ipaddress );
       tags.emplace_back( "status", std::to_string( metric.status ) );
       if ( !metric.mimeType.empty() ) tags.emplace_back( "mimeType", metric.mimeType );
@@ -175,12 +177,20 @@ namespace spt::queue::tsdb
           ns, millis.count() } );
     }
 
-    void saveLocation( const model::Metric& metric, client::MMDBClient::Properties& fields )
+    void saveLocation( const model::Metric& metric, const client::MMDBClient::Properties& fields )
     {
-      const auto geojson = [this, &fields]()
+      if ( fields.empty() ) return;
+
+      const auto geojson = [this, &fields]() -> std::string
       {
-        const auto& lat = fields["latitude"];
-        const auto& lng = fields["longitude"];
+        auto it = fields.find( "latitude" );
+        if ( it == fields.end() ) return {};
+        const auto lat = it->second;
+
+        it = fields.find( "longitude" );
+        if ( it == fields.end() ) return {};
+        const auto lng = it->second;
+
         auto mms = std::chrono::duration_cast<std::chrono::microseconds>( ns );
 
         std::ostringstream oss;
@@ -193,6 +203,11 @@ namespace spt::queue::tsdb
       };
 
       const auto data = geojson();
+      if ( data.empty() )
+      {
+        LOG_WARN << "No location data in metric.\n" << metric.str();
+        return;
+      }
       std::ostringstream ss;
       ss << configuration->metricPrefix;
       ss << ".location";
@@ -200,7 +215,7 @@ namespace spt::queue::tsdb
       auto tags = client::Tags{};
       tags.reserve( 10 );
       tags.emplace_back( "method", metric.method );
-      tags.emplace_back( "resource", metric.resource );
+      tags.emplace_back( "resource", resource( metric ) );
       tags.emplace_back( "ipaddress", metric.ipaddress );
       tags.emplace_back( "status", std::to_string( metric.status ) );
       if ( !metric.mimeType.empty() ) tags.emplace_back( "mimeType", metric.mimeType );
@@ -212,6 +227,12 @@ namespace spt::queue::tsdb
       addTag( tags, fields, "subdivision" );
 
       client.addSeries( client::StringEvent{ ss.str(), std::move( tags ), ns, data } );
+    }
+
+    std::string resource( const model::Metric& metric )
+    {
+      const auto idx = metric.resource.find_first_of( '?' );
+      return idx == std::string::npos ? metric.resource : metric.resource.substr( 0, idx );
     }
 
     void addTag( client::Tags& tags,

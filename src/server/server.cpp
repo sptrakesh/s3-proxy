@@ -321,9 +321,12 @@ namespace spt::server::impl
     }
 
     // Request path must be absolute and not contain "..".
+    // Additionally, query strings make no sense in the context of trying to
+    // serve files stored in S3 buckets.
     if ( req.target().empty() ||
         req.target()[0] != '/' ||
-        req.target().find( ".." ) != beast::string_view::npos )
+        req.target().find( ".." ) != beast::string_view::npos ||
+        req.target().find( '?' ) != beast::string_view::npos )
     {
       metric.status = 400;
       const auto et = std::chrono::steady_clock::now();
