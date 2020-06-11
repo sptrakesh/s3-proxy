@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <string>
 
 namespace spt::model
@@ -25,6 +26,7 @@ namespace spt::model
     std::string mimeType;
     std::string ipaddress;
     std::size_t size;
+    std::chrono::time_point<std::chrono::system_clock> timestamp = std::chrono::system_clock::now();
     int64_t time;
     int status;
     bool compressed;

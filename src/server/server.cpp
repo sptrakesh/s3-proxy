@@ -364,7 +364,7 @@ namespace spt::server::impl
     const auto ch = req[http::field::accept_encoding];
     const auto compressed = ( boost::algorithm::contains( ch, "gzip" ) ) &&
         should_compress( path );
-    LOG_DEBUG << "Compressed request " << ch.data() << " : " << compressed;
+    LOG_DEBUG << "Compressed request " << std::string{ ch.data(), ch.size() } << " : " << compressed;
 
     // Attempt to open the file
     beast::error_code ec;

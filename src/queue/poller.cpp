@@ -10,12 +10,92 @@
 #include "util/date.h"
 
 #include <boost/algorithm/string/replace.hpp>
+#include <bsoncxx/builder/stream/document.hpp>
+#include <mongocxx/client.hpp>
+#include <mongocxx/uri.hpp>
 
 #include <chrono>
 #include <sstream>
 
 namespace spt::queue::tsdb
 {
+  struct MongoClient
+  {
+    MongoClient( model::Configuration* configuration ) :
+      database{ configuration->mongoDatabase }, collection{ configuration->mongoCollection }
+    {
+      const auto uri = mongocxx::uri{ configuration->mongoUri };
+      client = std::make_unique<mongocxx::client>( uri );
+      LOG_INFO << "Connected to mongo";
+
+      try
+      {
+        index();
+      }
+      catch ( const std::exception& ex )
+      {
+        LOG_CRIT << "Error indexing collection " << collection << ".\n" << ex.what();
+      }
+    }
+
+    void save( const model::Metric& metric, client::MMDBClient::Properties& fields )
+    {
+      using bsoncxx::builder::stream::document;
+      using bsoncxx::builder::stream::open_document;
+      using bsoncxx::builder::stream::close_document;
+      using bsoncxx::builder::stream::finalize;
+
+      try
+      {
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>( metric.timestamp.time_since_epoch() ).count();
+
+        auto doc = document{};
+        doc << "method" << metric.method <<
+            "resource" << metric.resource <<
+            "mimeType" << metric.mimeType <<
+            "ipaddress" << metric.ipaddress <<
+            "size" << static_cast<int64_t>( metric.size ) <<
+            "time" << metric.time <<
+            "status" << metric.status <<
+            "compressed" << metric.compressed <<
+            "timestamp" << ns;
+
+        if ( !fields.empty() )
+        {
+          doc << "location" << open_document;
+          for ( auto& [key, value] : fields ) doc << key << value;
+          doc << close_document;
+        }
+
+        (*client)[database][collection].insert_one( doc << finalize );
+      }
+      catch ( const std::exception& ex )
+      {
+        LOG_CRIT << "Error saving metric.\n" << metric.str() << '\n' << ex.what();
+      }
+    }
+
+  private:
+    void index()
+    {
+      using bsoncxx::builder::stream::document;
+      using bsoncxx::builder::stream::finalize;
+
+      (*client)[database][collection].create_index(
+          document{} << "method" << 1 << finalize );
+      (*client)[database][collection].create_index(
+          document{} << "resource" << 1 << finalize );
+      (*client)[database][collection].create_index(
+          document{} << "status" << 1 << finalize );
+      (*client)[database][collection].create_index(
+          document{} << "timestamp" << 1 << finalize );
+    }
+
+    std::string database;
+    std::string collection;
+    std::unique_ptr<mongocxx::client> client = nullptr;
+  };
+
   struct TSDBClient
   {
     TSDBClient( boost::asio::io_context& ioc, model::Configuration* configuration ) :
@@ -30,25 +110,15 @@ namespace spt::queue::tsdb
       client.stop();
     }
 
-    void save( const model::Metric& metric )
+    void save( const model::Metric& metric, client::MMDBClient::Properties& fields )
     {
-      //if ( ns > metric.time ) ns = std::chrono::nanoseconds{ ns.count() + 1 };
-      //else ns = metric.time;
       ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
           std::chrono::system_clock::now().time_since_epoch() );
 
       saveCount( metric );
       saveSize( metric );
       saveTime( metric );
-
-      auto fields = client::MMDBClient::instance().query( metric.ipaddress );
-      if ( fields.empty() )
-      {
-        LOG_WARN << "No properties for ip address " << metric.ipaddress;
-        return;
-      }
-
-      saveLocation( metric, fields );
+      if ( !fields.empty() ) saveLocation( metric, fields );
     }
 
   private:
@@ -105,7 +175,7 @@ namespace spt::queue::tsdb
           ns, millis.count() } );
     }
 
-    void saveLocation( const model::Metric& metric, client::MMDBClient::Properties & fields )
+    void saveLocation( const model::Metric& metric, client::MMDBClient::Properties& fields )
     {
       const auto geojson = [this, &fields]()
       {
@@ -167,7 +237,15 @@ Poller::~Poller() = default;
 
 void Poller::run()
 {
-  client = std::make_unique<tsdb::TSDBClient>( ioc, configuration.get() );
+  if ( !configuration->mongoUri.empty() )
+  {
+    mongo = std::make_unique<tsdb::MongoClient>( configuration.get() );
+  }
+  if ( !configuration->akumuli.empty() )
+  {
+    tsdb = std::make_unique<tsdb::TSDBClient>( ioc, configuration.get() );
+  }
+
   running.store( true );
   LOG_INFO << "Metrics queue monitor starting";
 
@@ -198,8 +276,14 @@ void Poller::loop()
   auto metric = model::Metric{};
   while ( queue.consume( metric ) )
   {
-    client->save( metric );
-    if ( ( ++count % 100 ) == 0 ) LOG_INFO << "Published " << count << " metrics to TSDB";
+    auto fields = client::MMDBClient::instance().query( metric.ipaddress );
+    if ( fields.empty() )
+    {
+      LOG_WARN << "No properties for ip address " << metric.ipaddress;
+    }
+    if ( mongo ) mongo->save( metric, fields );
+    if ( tsdb ) tsdb->save( metric, fields );
+    if ( ( ++count % 100 ) == 0 ) LOG_INFO << "Published " << count << " metrics to database(s)";
   }
   if ( running.load() ) std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
 }
