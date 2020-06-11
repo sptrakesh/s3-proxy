@@ -19,7 +19,7 @@ namespace spt::model
     Metric( const Metric& ) = delete;
     Metric& operator=( const Metric& ) = delete;
 
-    std::string str() const;
+    [[nodiscard]] std::string str() const;
 
     std::string method;
     std::string resource;
