@@ -1,6 +1,10 @@
 # s3-proxy
 
 * [Configuration](#configuration)
+    * [Metric](#metric)
+        * [BSON Document](#bson-document)
+        * [Akumuli Series](#akumuli-series)
+        * [Akumuli Tags](#akumuli-tags)
 * [Testing](#testing)
 * [Docker](#docker)
     * [Run Locally](#run-locally)
