@@ -108,6 +108,33 @@ test suite.
 }
 ```
 
+#### Akumuli Series
+Most metric properties are saved as *tags* in the corresponding *series* stored
+in Akumuli.  The following series are stored:
+* `<prefix>.counter` - A simple counter series.  Stores individual requests with
+a fixed value of `1` to track requests.
+* `<prefix>.size` - A series used to track the response sizes sent.  **Note:**
+this value will differ based on whether `compressed` response was requested or not.
+* `<prefix>.time` - A series used to track the time consumed to send the response.
+* `<prefix>.location` - A event series used to track the geo-location of the site
+visitor.  This is only as accurate as the *IP Address* information inferred about
+the request.
+
+#### Akumuli Tags
+Most metric properties are saved as *tags* in the corresponding *series* stored
+in Akumuli.  Akumuli tags are specified as `space` separated values.  The official
+documentation recommends escaping `space` with a `backslash` character following
+standard conventions.  This scheme however has not worked well, especially with
+longer city names.  To work around this, we use a special `__#SPACE#__` escape
+pattern (extremely unlikely to collide with any other valid text).  Downstream
+users of the corresponding Akumuli series must keep this in mind and perform
+appropriate pattern replacement.
+
+For instance the [geojson-ds](https://github.com/sptrakesh/grafana-geojson-datasource)
+project, replaces the pattern when returning *tag values*, and also performs the
+reverse conversion when the *tag value* is specified as an *adhoc filter* in
+the *query*.
+
 ## Testing
 [Integration Test](test/lua/README.md)
 
