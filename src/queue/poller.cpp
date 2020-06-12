@@ -240,7 +240,8 @@ namespace spt::queue::tsdb
     {
       const auto it = fields.find( key );
       if ( it == fields.end() ) return;
-      tags.emplace_back( std::move( key ), boost::algorithm::replace_all_copy( it->second, " ", "\\ " ) );
+      LOG_DEBUG << "Adding tag key: " << key << ", value: " << boost::algorithm::replace_all_copy( it->second, " ", "__" );
+      tags.emplace_back( std::move( key ), boost::algorithm::replace_all_copy( it->second, " ", "__#SPACE#__" ) );
     };
 
     client::Akumuli client;

@@ -121,7 +121,7 @@ ab -H 'x-forwarded-for: 184.105.163.155' -n 10000 -c 400 -r http://127.0.0.1:800
 ab -H 'x-forwarded-for: 184.105.163.155' -n 100000 -c 100 -r http://127.0.0.1:8000/
 ```
 
-Also tested using `httper` for a much bigger run with the focus on ensuring no
+Also tested using `httperf` for a much bigger run with the focus on ensuring no
 errors over an extended run.
 
 ```shell script
