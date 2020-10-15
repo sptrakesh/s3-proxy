@@ -60,6 +60,12 @@ Defaults()
     THREADS=8
     echo "THREADS not set.  Will default to $THREADS"
   fi
+
+  if [ -z "$LOG_LEVEL" ]
+  then
+    LOG_LEVEL="info"
+    echo "LOG_LEVEL not set.  Will default to $LOG_LEVEL"
+  fi
 }
 
 Extras()
@@ -125,12 +131,17 @@ Extras()
       fi
     fi
   fi
+
+  if [ -n "$REJECT_QUERY_STRINGS" ]
+  then
+    args="$args --reject-query-strings $REJECT_QUERY_STRINGS"
+  fi
 }
 
 Service()
 {
   echo "Starting up AWS S3 proxy server"
-  /opt/spt/bin/s3proxy --console true --dir ${LOGDIR}/ \
+  /opt/spt/bin/s3proxy --console true --dir ${LOGDIR}/ --log-level $LOG_LEVEL \
     --ttl $TTL --cache-dir $CACHE_DIR --port $PORT --threads $THREADS \
     --region "$AWS_REGION" --bucket "$S3_BUCKET" \
     --key "$AWS_KEY" --secret "$AWS_SECRET" \

@@ -25,7 +25,9 @@ int main( int argc, char const * const * argv )
       Opt(config->secret, "secret")["-s"]["--secret"]("AWS IAM account secret to use") |
       Opt(config->port, "port")["-p"]["--port"]("Port on which to listen (default 8000)") |
       Opt(config->threads, "threads")["-n"]["--threads"]("Number of server threads to spawn (default system)") |
+      Opt(config->rejectQueryStrings, "rejectQueryStrings")["-j"]["--reject-query-strings"]("Reject query strings in request (default false)") |
       Opt(console, "console")["-c"]["--console"]("Log to console (default false)") |
+      Opt(config->logLevel, "logLevel")["-l"]["--log-level"]("Log level to use [debug|info|warn|critical] (default info).") |
       Opt(config->ttl, "TTL")["-t"]["--ttl"]("TTL for local cache in seconds (default 300)") |
       Opt(config->cacheDir, "cacheDir")["-d"]["--cache-dir"]("Location for local cache (default /tmp)") |
       Opt(config->region, "region")["-r"]["--region"]("AWS region for the account") |
@@ -58,6 +60,10 @@ int main( int argc, char const * const * argv )
     "console: " << std::boolalpha << console << '\n' <<
     "dir: " << dir << '\n';
 
+  if ( config->logLevel == "debug" ) nanolog::set_log_level( nanolog::LogLevel::DEBUG );
+  else if ( config->logLevel == "info" ) nanolog::set_log_level( nanolog::LogLevel::INFO );
+  else if ( config->logLevel == "warn" ) nanolog::set_log_level( nanolog::LogLevel::WARN );
+  else if ( config->logLevel == "critical" ) nanolog::set_log_level( nanolog::LogLevel::CRIT );
   nanolog::initialize( nanolog::GuaranteedLogger(), dir, "s3-proxy", console );
   mongocxx::instance instance{};
 

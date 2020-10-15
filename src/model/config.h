@@ -28,6 +28,7 @@ namespace spt::model
     std::string bucket;
     std::string authKey;
     std::string cacheDir{ "/tmp" };
+    std::string logLevel{ "info" };
     std::string mmdbHost;
     std::string akumuli;
     std::string metricPrefix{ "request" };
@@ -39,6 +40,7 @@ namespace spt::model
     int akumuliPort = 8282;
     int ttl = 300;
     int threads = std::thread::hardware_concurrency();
+    bool rejectQueryStrings = false;
 
     [[nodiscard]] std::string str() const;
   };

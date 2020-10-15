@@ -38,7 +38,12 @@ cached for efficiency.
     *flat*.  Makes it easy to have external jobs (eg. `cron` jobs) that delete
     the files on a regular basis.  No real need for it, unless a lot of files
     have been removed from the backing S3 bucket.
+* `--reject-query-strings` - A flag to indicate that requests that contain query
+strings should be rejected as bad request.  Query strings in the context of serving
+out S3 resources may be viewed as a malicious request.
 * `--console` - Set to `true` to echo log messages to `stdout` as well.  Default `false`.
+* `--log-level` - Set the desired log level for the service.  Valid values are one of
+`critical`, `warn`, `info` or `debug`.
 * `--dir` - Directory under which log files are to be stored.  Log files will be
 rotated daily.  Default `logs/` directory under the current working directory.
     * **Note:** if the directory does not exist, no logs will be output.
