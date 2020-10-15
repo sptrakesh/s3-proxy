@@ -321,13 +321,23 @@ namespace spt::server::impl
     }
 
     // Request path must be absolute and not contain "..".
-    // Additionally, query strings make no sense in the context of trying to
-    // serve files stored in S3 buckets.
     if ( req.target().empty() ||
         req.target()[0] != '/' ||
-        req.target().find( ".." ) != beast::string_view::npos ||
-        req.target().find( '?' ) != beast::string_view::npos )
+        req.target().find( ".." ) != beast::string_view::npos )
     {
+      metric.status = 400;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
+      queue::QueueManager::instance().publish( std::move( metric ) );
+      return send( bad_request( "Illegal request-target" ));
+    }
+
+    // Query strings make no sense in the context of trying to
+    // serve files stored in S3 buckets.  If configured as error reject.
+    if ( config->rejectQueryStrings && req.target().find( '?' ) != beast::string_view::npos )
+    {
+      LOG_DEBUG << "Request " << std::string{ req.target() } << " rejected due to query string policy";
       metric.status = 400;
       const auto et = std::chrono::steady_clock::now();
       const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
@@ -488,15 +498,10 @@ namespace spt::server::impl
     {
       session& self_;
 
-      explicit
-      send_lambda(session& self)
-          : self_(self)
-      {
-      }
+      explicit send_lambda(session& self) : self_(self) {}
 
       template<bool isRequest, class Body, class Fields>
-      void
-      operator()(http::message<isRequest, Body, Fields>&& msg) const
+      void operator()(http::message<isRequest, Body, Fields>&& msg) const
       {
         // The lifetime of the message has to extend
         // for the duration of the async operation so
@@ -536,8 +541,7 @@ namespace spt::server::impl
     }
 
     // Start the asynchronous operation
-    void
-    run()
+    void run()
     {
       // We need to be executing within a strand to perform async operations
       // on the I/O objects in this session. Although not strictly necessary
@@ -549,8 +553,7 @@ namespace spt::server::impl
               shared_from_this()));
     }
 
-    void
-    do_read()
+    void do_read()
     {
       // Make the request empty before reading,
       // otherwise the operation behavior is undefined.
@@ -566,10 +569,7 @@ namespace spt::server::impl
               shared_from_this()));
     }
 
-    void
-    on_read(
-        beast::error_code ec,
-        std::size_t bytes_transferred)
+    void on_read( beast::error_code ec, std::size_t bytes_transferred)
     {
       boost::ignore_unused(bytes_transferred);
 
@@ -584,18 +584,13 @@ namespace spt::server::impl
       handle_request(configuration, std::move(req_), lambda_, stream_.socket().remote_endpoint().address());
     }
 
-    void
-    on_write(
-        bool close,
-        beast::error_code ec,
-        std::size_t bytes_transferred)
+    void on_write( bool close, beast::error_code ec, std::size_t bytes_transferred)
     {
       boost::ignore_unused(bytes_transferred);
 
-      if(ec)
-        return fail(ec, "write");
+      if (ec) return fail(ec, "write");
 
-      if(close)
+      if (close)
       {
         // This means we should close the connection, usually because
         // the response indicated the "Connection: close" semantic.
@@ -609,8 +604,7 @@ namespace spt::server::impl
       do_read();
     }
 
-    void
-    do_close()
+    void do_close()
     {
       // Send a TCP shutdown
       beast::error_code ec;
@@ -630,19 +624,15 @@ namespace spt::server::impl
     model::Configuration* configuration;
 
   public:
-    listener(
-        net::io_context& ioc,
-        tcp::endpoint endpoint,
+    listener( net::io_context& ioc, tcp::endpoint endpoint,
         model::Configuration* configuration)
-        : ioc_(ioc)
-        , acceptor_(net::make_strand(ioc))
-        , configuration(configuration)
+        : ioc_(ioc), acceptor_(net::make_strand(ioc)), configuration(configuration)
     {
       beast::error_code ec;
 
       // Open the acceptor
       acceptor_.open(endpoint.protocol(), ec);
-      if(ec)
+      if (ec)
       {
         fail(ec, "open");
         return;
@@ -650,7 +640,7 @@ namespace spt::server::impl
 
       // Allow address reuse
       acceptor_.set_option(net::socket_base::reuse_address(true), ec);
-      if(ec)
+      if (ec)
       {
         fail(ec, "set_option");
         return;
@@ -658,7 +648,7 @@ namespace spt::server::impl
 
       // Bind to the server address
       acceptor_.bind(endpoint, ec);
-      if(ec)
+      if (ec)
       {
         fail(ec, "bind");
         return;
@@ -667,7 +657,7 @@ namespace spt::server::impl
       // Start listening for connections
       acceptor_.listen(
           net::socket_base::max_listen_connections, ec);
-      if(ec)
+      if (ec)
       {
         fail(ec, "listen");
         return;
@@ -675,15 +665,13 @@ namespace spt::server::impl
     }
 
     // Start accepting incoming connections
-    void
-    run()
+    void run()
     {
       do_accept();
     }
 
   private:
-    void
-    do_accept()
+    void do_accept()
     {
       // The new connection gets its own strand
       acceptor_.async_accept(
@@ -696,7 +684,7 @@ namespace spt::server::impl
     void
     on_accept(beast::error_code ec, tcp::socket socket)
     {
-      if(ec)
+      if (ec)
       {
         fail(ec, "accept");
       }

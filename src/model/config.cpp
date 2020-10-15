@@ -6,10 +6,33 @@
 
 #include <sstream>
 
+#include <mongocxx/uri.hpp>
+
 using spt::model::Configuration;
 
 std::string Configuration::str() const
 {
+  std::ostringstream moss;
+  if ( !mongoUri.empty() )
+  {
+    auto u = mongocxx::uri{ mongoUri };
+    moss << "mongodb://";
+    bool first = true;
+    for ( const auto& host : u.hosts() )
+    {
+      if ( !first ) moss << ',';
+      moss << host.name << ':' << host.port;
+      first = false;
+    }
+
+    moss << '/' << u.database();
+    const auto pos = mongoUri.find( '?' );
+    if ( pos != std::string::npos )
+    {
+      moss << mongoUri.substr( pos );
+    }
+  }
+
   std::ostringstream ss;
   ss << R"({"key": ")" << key <<
     R"(", "region": ")" << region <<
@@ -18,12 +41,14 @@ std::string Configuration::str() const
     R"(", "cacheTTL": )" << ttl <<
     ", \"port\": " << port <<
     ", \"threads\": " << threads <<
-    R"(, "mmdb": {"host": ")" << mmdbHost <<
+    R"(, "rejectQueryStrings": ")" << std::boolalpha << rejectQueryStrings <<
+    R"(, "logLevel": ")" << logLevel <<
+    R"(", "mmdb": {"host": ")" << mmdbHost <<
     R"(", "port": )" << mmdbPort << '}' <<
     R"(, "akumuli": {"host": ")" << akumuli <<
     R"(", "prefix": ")" << metricPrefix <<
     R"(", "port": )" << akumuliPort << '}' <<
-    R"(, "mongo": {"uri": ")" << mongoUri <<
+    R"(, "mongo": {"uri": ")" << moss.str() <<
     R"(", "database": ")" << mongoDatabase <<
     R"(", "collection": ")" << mongoCollection << "\"}" <<
     '}';
