@@ -236,6 +236,11 @@ namespace spt::server::impl
     const auto method = http::to_string( req.method() );
     metric.method = std::string{ method.data(), method.size() };
     metric.resource = std::string{ req.target().data(), req.target().size() };
+    const auto pos = metric.resource.find('?');
+    if ( pos != std::string::npos )
+    {
+      metric.resource = metric.resource.substr( 0, pos );
+    }
 
     auto ip = req["x-real-ip"];
     if ( ip.empty() ) ip = req["x-forwarded-for"];
