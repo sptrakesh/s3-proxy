@@ -67,5 +67,10 @@ int main( int argc, char const * const * argv )
   nanolog::initialize( nanolog::GuaranteedLogger(), dir, "s3-proxy", console );
   mongocxx::instance instance{};
 
+  std::set_terminate([](){
+    std::cout << "Unhandled exception encountered" << std::endl;
+    std::abort();
+  });
+
   return spt::server::run( config );
 }

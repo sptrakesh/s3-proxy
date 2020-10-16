@@ -93,14 +93,13 @@ namespace spt::server::impl
 
   std::string path_cat( beast::string_view base, beast::string_view path )
   {
-    if ( base.empty())
-      return std::string( path );
+    if ( base.empty() ) return std::string( path );
     std::string result( base );
 #ifdef BOOST_MSVC
     char constexpr path_separator = '\\';
     if(result.back() == path_separator)
         result.resize(result.size() - 1);
-    result.append(path.data(), path.size());
+    result.append(path.data(), path.size() );
     for(auto& c : result)
         if(c == '/')
             c = path_separator;
@@ -108,7 +107,7 @@ namespace spt::server::impl
     char constexpr path_separator = '/';
     if ( result.back() == path_separator )
       result.resize( result.size() - 1 );
-    result.append( path.data(), path.size());
+    result.append( path.data(), path.size() );
 #endif
     return result;
   }
@@ -149,8 +148,7 @@ namespace spt::server::impl
   template<
       class Body, class Allocator,
       class Send>
-  void
-  handle_request( const model::Configuration* config,
+  void handle_request( const model::Configuration* config,
       http::request<Body, http::basic_fields<Allocator>>&& req,
       Send&& send, net::ip::address client )
   {
@@ -233,79 +231,227 @@ namespace spt::server::impl
 
     const auto st = std::chrono::steady_clock::now();
     auto metric = model::Metric{};
-    const auto method = http::to_string( req.method() );
-    metric.method = std::string{ method.data(), method.size() };
-    metric.resource = std::string{ req.target().data(), req.target().size() };
-    const auto pos = metric.resource.find('?');
-    if ( pos != std::string::npos )
-    {
-      metric.resource = metric.resource.substr( 0, pos );
-    }
 
-    auto ip = req["x-real-ip"];
-    if ( ip.empty() ) ip = req["x-forwarded-for"];
-    if ( ip.empty() ) ip = client.to_string();
-    metric.ipaddress = std::string{ ip.data(), ip.size() };
-    LOG_DEBUG << "Request from " << metric.ipaddress;
-
-    // Make sure we can handle the method
-    if ( req.method() != http::verb::get &&
-        req.method() != http::verb::head &&
-        req.method() != http::verb::options )
+    try
     {
-      metric.status = 405;
-      const auto et = std::chrono::steady_clock::now();
-      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-      metric.time = delta.count();
-      queue::QueueManager::instance().publish( std::move( metric ) );
-      return send( not_allowed() );
-    }
-
-    if ( req.method() == http::verb::options )
-    {
-      http::response<http::empty_body> res{ http::status::no_content,
-          req.version() };
-      res.set( "Access-Control-Allow-Origin", "*" );
-      res.set( "Access-Control-Allow-Methods", "GET" );
-      res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
-      res.keep_alive( req.keep_alive() );
-      metric.status = 200;
-      const auto et = std::chrono::steady_clock::now();
-      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-      metric.time = delta.count();
-      queue::QueueManager::instance().publish( std::move( metric ) );
-      return send( std::move( res ) );
-    }
-
-    if ( http::verb::get == req.method() && req.target() == "/_proxy/_private/_cache/clear" )
-    {
-      auto bearer = req["authorization"];
-      if ( bearer.empty() ) bearer = req["Authorization"];
-      if ( bearer.empty() )
+      const auto method = http::to_string( req.method() );
+      metric.method = std::string{ method.data(), method.size() };
+      metric.resource = std::string{ req.target().data(), req.target().size() };
+      const auto pos = metric.resource.find_first_of('?');
+      if ( pos != std::string::npos )
       {
-        metric.status = 403;
+        metric.resource = metric.resource.substr( 0, pos );
+      }
+
+      auto ip = req["x-real-ip"];
+      if ( ip.empty() ) ip = req["x-forwarded-for"];
+      if ( ip.empty() ) ip = client.to_string();
+      metric.ipaddress = std::string{ ip.data(), ip.size() };
+      LOG_DEBUG << "Request from " << metric.ipaddress;
+
+      // Make sure we can handle the method
+      if ( req.method() != http::verb::get &&
+          req.method() != http::verb::head &&
+          req.method() != http::verb::options )
+      {
+        metric.status = 405;
         const auto et = std::chrono::steady_clock::now();
         const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
         metric.time = delta.count();
         queue::QueueManager::instance().publish( std::move( metric ) );
-        return send( forbidden() );
+        return send( not_allowed() );
       }
 
-      const auto prefix = std::string("Bearer ");
-      if ( !boost::algorithm::starts_with( bearer, prefix ) )
+      if ( req.method() == http::verb::options )
+      {
+        http::response<http::empty_body> res{ http::status::no_content,
+            req.version() };
+        res.set( "Access-Control-Allow-Origin", "*" );
+        res.set( "Access-Control-Allow-Methods", "GET" );
+        res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
+        res.keep_alive( req.keep_alive() );
+        metric.status = 200;
+        const auto et = std::chrono::steady_clock::now();
+        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+        metric.time = delta.count();
+        queue::QueueManager::instance().publish( std::move( metric ) );
+        return send( std::move( res ) );
+      }
+
+      if ( http::verb::get == req.method() && req.target() == "/_proxy/_private/_cache/clear" )
+      {
+        auto bearer = req["authorization"];
+        if ( bearer.empty() ) bearer = req["Authorization"];
+        if ( bearer.empty() )
+        {
+          metric.status = 403;
+          const auto et = std::chrono::steady_clock::now();
+          const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+          metric.time = delta.count();
+          queue::QueueManager::instance().publish( std::move( metric ) );
+          return send( forbidden() );
+        }
+
+        const auto prefix = std::string("Bearer ");
+        if ( !boost::algorithm::starts_with( bearer, prefix ) )
+        {
+          metric.status = 400;
+          const auto et = std::chrono::steady_clock::now();
+          const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+          metric.time = delta.count();
+          queue::QueueManager::instance().publish( std::move( metric ) );
+          return send( bad_request( "Invalid Authorization header" ) );
+        }
+
+        std::string temp{ bearer };
+        temp.erase( 0, prefix.size() );
+
+        if ( S3Util::instance().clear( temp ) )
+        {
+          metric.status = 304;
+          const auto et = std::chrono::steady_clock::now();
+          const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+          metric.time = delta.count();
+          queue::QueueManager::instance().publish( std::move( metric ) );
+          return send( not_modified() );
+        }
+        else
+        {
+          metric.status = 403;
+          const auto et = std::chrono::steady_clock::now();
+          const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+          metric.time = delta.count();
+          queue::QueueManager::instance().publish( std::move( metric ) );
+          return send( forbidden() );
+        }
+      }
+
+      // Request path must be absolute and not contain "..".
+      if ( req.target().empty() ||
+          req.target()[0] != '/' ||
+          req.target().find( ".." ) != beast::string_view::npos )
       {
         metric.status = 400;
         const auto et = std::chrono::steady_clock::now();
         const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
         metric.time = delta.count();
         queue::QueueManager::instance().publish( std::move( metric ) );
-        return send( bad_request( "Invalid Authorization header" ) );
+        return send( bad_request( "Illegal request-target" ));
       }
 
-      std::string temp{ bearer };
-      temp.erase( 0, prefix.size() );
+      // Query strings make no sense in the context of trying to
+      // serve files stored in S3 buckets.  If configured as error reject.
+      if ( config->rejectQueryStrings && req.target().find( '?' ) != beast::string_view::npos )
+      {
+        LOG_DEBUG << "Request " << std::string{ req.target() } << " rejected due to query string policy";
+        metric.status = 400;
+        const auto et = std::chrono::steady_clock::now();
+        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+        metric.time = delta.count();
+        queue::QueueManager::instance().publish( std::move( metric ) );
+        return send( bad_request( "Illegal request-target" ));
+      }
 
-      if ( S3Util::instance().clear( temp ) )
+      if ( metric.resource.back() == '/' )
+      {
+        metric.resource.append( "index.html" );
+      }
+
+      auto downloaded = S3Util::instance().get( metric.resource );
+      if ( ! downloaded || downloaded->fileName.empty() )
+      {
+        LOG_WARN << "Error downloading resource " << metric.resource;
+        metric.status = 404;
+        const auto et = std::chrono::steady_clock::now();
+        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+        metric.time = delta.count();
+        queue::QueueManager::instance().publish( std::move( metric ) );
+        return send( not_found( req.target() ) );
+      }
+      else
+      {
+        LOG_INFO << "Downloaded resource " << metric.resource << " from S3\n" << downloaded->str();
+      }
+
+      // Build the path to the requested file
+      std::string path = path_cat( config->cacheDir, req.target() );
+      if ( req.target().back() == '/' ) path.append( "index.html" );
+
+      if ( downloaded->contentType.empty() ) metric.mimeType = mime_type( path ).to_string();
+      else metric.mimeType = downloaded->contentType;
+
+      const auto ch = req[http::field::accept_encoding];
+      const auto compressed = ( boost::algorithm::contains( ch, "gzip" ) ) &&
+          should_compress( path );
+      LOG_DEBUG << "Compressed request " << std::string{ ch.data(), ch.size() } << " : " << compressed;
+
+      // Attempt to open the file
+      beast::error_code ec;
+      http::file_body::value_type body;
+      if ( compressed )
+      {
+        const auto fn = util::compressedFileName( downloaded->fileName );
+        if ( !std::filesystem::exists( fn ) )
+        {
+          util::compress( downloaded->fileName, fn );
+        }
+        body.open( fn.c_str(), beast::file_mode::scan, ec );
+      }
+      else
+      {
+        body.open( downloaded->fileName.c_str(), beast::file_mode::scan, ec );
+      }
+
+      // Handle the case where the file doesn't exist
+      if ( ec == beast::errc::no_such_file_or_directory )
+      {
+        metric.status = 404;
+        const auto et = std::chrono::steady_clock::now();
+        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+        metric.time = delta.count();
+        queue::QueueManager::instance().publish( std::move( metric ) );
+        return send( not_found( req.target() ) );
+      }
+
+      // Handle an unknown error
+      if ( ec )
+      {
+        LOG_CRIT << "I/O error. " << ec.message();
+        metric.status = 500;
+        const auto et = std::chrono::steady_clock::now();
+        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+        metric.time = delta.count();
+        queue::QueueManager::instance().publish( std::move( metric ) );
+        return send( server_error( "I/O error" ) );
+      }
+
+      metric.size = body.size();
+
+      // Respond to HEAD request
+      if ( req.method() == http::verb::head )
+      {
+        http::response<http::empty_body> res{ http::status::ok, req.version() };
+        res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
+
+        res.set( http::field::content_type, metric.mimeType );
+
+        if ( !downloaded->etag.empty() ) res.set( http::field::etag, downloaded->etag );
+        res.set( http::field::expires, downloaded->expirationTime() );
+        res.set( http::field::last_modified, downloaded->lastModifiedTime() );
+        if ( !downloaded->cacheControl.empty() ) res.set( http::field::cache_control, downloaded->cacheControl );
+
+        res.content_length( downloaded->contentLength );
+        res.keep_alive( req.keep_alive() );
+        metric.status = 200;
+        const auto et = std::chrono::steady_clock::now();
+        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+        metric.time = delta.count();
+        queue::QueueManager::instance().publish( std::move( metric ) );
+        return send( std::move( res ) );
+      }
+
+      auto ifmatch = req[http::field::if_none_match];
+      if ( beast::string_view{ downloaded->etag } == ifmatch )
       {
         metric.status = 304;
         const auto et = std::chrono::steady_clock::now();
@@ -314,123 +460,26 @@ namespace spt::server::impl
         queue::QueueManager::instance().publish( std::move( metric ) );
         return send( not_modified() );
       }
-      else
+
+      auto ifmodified = req[http::field::if_modified_since];
+      if ( beast::string_view{ downloaded->lastModifiedTime() } == ifmodified )
       {
-        metric.status = 403;
+        metric.status = 304;
         const auto et = std::chrono::steady_clock::now();
         const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
         metric.time = delta.count();
         queue::QueueManager::instance().publish( std::move( metric ) );
-        return send( forbidden() );
+        return send( not_modified() );
       }
-    }
 
-    // Request path must be absolute and not contain "..".
-    if ( req.target().empty() ||
-        req.target()[0] != '/' ||
-        req.target().find( ".." ) != beast::string_view::npos )
-    {
-      metric.status = 400;
-      const auto et = std::chrono::steady_clock::now();
-      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-      metric.time = delta.count();
-      queue::QueueManager::instance().publish( std::move( metric ) );
-      return send( bad_request( "Illegal request-target" ));
-    }
-
-    // Query strings make no sense in the context of trying to
-    // serve files stored in S3 buckets.  If configured as error reject.
-    if ( config->rejectQueryStrings && req.target().find( '?' ) != beast::string_view::npos )
-    {
-      LOG_DEBUG << "Request " << std::string{ req.target() } << " rejected due to query string policy";
-      metric.status = 400;
-      const auto et = std::chrono::steady_clock::now();
-      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-      metric.time = delta.count();
-      queue::QueueManager::instance().publish( std::move( metric ) );
-      return send( bad_request( "Illegal request-target" ));
-    }
-
-    if ( req.target().back() == '/' )
-    {
-      metric.resource.append( "index.html" );
-    }
-
-    auto downloaded = S3Util::instance().get( metric.resource );
-    if ( ! downloaded || downloaded->fileName.empty() )
-    {
-      LOG_WARN << "Error downloading resource " << metric.resource;
-      metric.status = 404;
-      const auto et = std::chrono::steady_clock::now();
-      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-      metric.time = delta.count();
-      queue::QueueManager::instance().publish( std::move( metric ) );
-      return send( not_found( req.target() ) );
-    }
-    else
-    {
-      LOG_INFO << "Downloaded resource " << metric.resource << " from S3\n" << downloaded->str();
-    }
-
-    // Build the path to the requested file
-    std::string path = path_cat( config->cacheDir, req.target() );
-    if ( req.target().back() == '/' ) path.append( "index.html" );
-
-    if ( downloaded->contentType.empty() ) metric.mimeType = mime_type( path ).to_string();
-    else metric.mimeType = downloaded->contentType;
-
-    const auto ch = req[http::field::accept_encoding];
-    const auto compressed = ( boost::algorithm::contains( ch, "gzip" ) ) &&
-        should_compress( path );
-    LOG_DEBUG << "Compressed request " << std::string{ ch.data(), ch.size() } << " : " << compressed;
-
-    // Attempt to open the file
-    beast::error_code ec;
-    http::file_body::value_type body;
-    if ( compressed )
-    {
-      const auto fn = util::compressedFileName( downloaded->fileName );
-      if ( !std::filesystem::exists( fn ) )
-      {
-        util::compress( downloaded->fileName, fn );
-      }
-      body.open( fn.c_str(), beast::file_mode::scan, ec );
-    }
-    else
-    {
-      body.open( downloaded->fileName.c_str(), beast::file_mode::scan, ec );
-    }
-
-    // Handle the case where the file doesn't exist
-    if ( ec == beast::errc::no_such_file_or_directory )
-    {
-      metric.status = 404;
-      const auto et = std::chrono::steady_clock::now();
-      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-      metric.time = delta.count();
-      queue::QueueManager::instance().publish( std::move( metric ) );
-      return send( not_found( req.target() ) );
-    }
-
-    // Handle an unknown error
-    if ( ec )
-    {
-      metric.status = 500;
-      const auto et = std::chrono::steady_clock::now();
-      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-      metric.time = delta.count();
-      queue::QueueManager::instance().publish( std::move( metric ) );
-      return send( server_error( ec.message() ) );
-    }
-
-    metric.size = body.size();
-
-    // Respond to HEAD request
-    if ( req.method() == http::verb::head )
-    {
-      http::response<http::empty_body> res{ http::status::ok, req.version() };
+      // Respond to GET request
+      http::response<http::file_body> res{
+          std::piecewise_construct,
+          std::make_tuple( std::move( body )),
+          std::make_tuple( http::status::ok, req.version()) };
       res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
 
+      if ( compressed ) res.set( http::field::content_encoding, "gzip" );
       res.set( http::field::content_type, metric.mimeType );
 
       if ( !downloaded->etag.empty() ) res.set( http::field::etag, downloaded->etag );
@@ -438,7 +487,7 @@ namespace spt::server::impl
       res.set( http::field::last_modified, downloaded->lastModifiedTime() );
       if ( !downloaded->cacheControl.empty() ) res.set( http::field::cache_control, downloaded->cacheControl );
 
-      res.content_length( downloaded->contentLength );
+      res.content_length( metric.size );
       res.keep_alive( req.keep_alive() );
       metric.status = 200;
       const auto et = std::chrono::steady_clock::now();
@@ -447,52 +496,11 @@ namespace spt::server::impl
       queue::QueueManager::instance().publish( std::move( metric ) );
       return send( std::move( res ) );
     }
-
-    auto ifmatch = req[http::field::if_none_match];
-    if ( beast::string_view{ downloaded->etag } == ifmatch )
+    catch ( const std::exception& ex )
     {
-      metric.status = 304;
-      const auto et = std::chrono::steady_clock::now();
-      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-      metric.time = delta.count();
-      queue::QueueManager::instance().publish( std::move( metric ) );
-      return send( not_modified() );
+      LOG_CRIT << "Error processing request " << ex.what();
+      return send( server_error( "Unknown error" ) );
     }
-
-    auto ifmodified = req[http::field::if_modified_since];
-    if ( beast::string_view{ downloaded->lastModifiedTime() } == ifmodified )
-    {
-      metric.status = 304;
-      const auto et = std::chrono::steady_clock::now();
-      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-      metric.time = delta.count();
-      queue::QueueManager::instance().publish( std::move( metric ) );
-      return send( not_modified() );
-    }
-
-    // Respond to GET request
-    http::response<http::file_body> res{
-        std::piecewise_construct,
-        std::make_tuple( std::move( body )),
-        std::make_tuple( http::status::ok, req.version()) };
-    res.set( http::field::server, BOOST_BEAST_VERSION_STRING );
-
-    if ( compressed ) res.set( http::field::content_encoding, "gzip" );
-    res.set( http::field::content_type, metric.mimeType );
-
-    if ( !downloaded->etag.empty() ) res.set( http::field::etag, downloaded->etag );
-    res.set( http::field::expires, downloaded->expirationTime() );
-    res.set( http::field::last_modified, downloaded->lastModifiedTime() );
-    if ( !downloaded->cacheControl.empty() ) res.set( http::field::cache_control, downloaded->cacheControl );
-
-    res.content_length( metric.size );
-    res.keep_alive( req.keep_alive() );
-    metric.status = 200;
-    const auto et = std::chrono::steady_clock::now();
-    const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-    metric.time = delta.count();
-    queue::QueueManager::instance().publish( std::move( metric ) );
-    return send( std::move( res ) );
   }
 
   class session : public std::enable_shared_from_this<session>
