@@ -140,6 +140,12 @@ Extras()
 
 Service()
 {
+  if [ -n "$DEBUG" ]
+  then
+    echo "DEBUG specified, shell into container and start up with gdb"
+    tail -f /dev/null
+  fi
+
   echo "Starting up AWS S3 proxy server"
   /opt/spt/bin/s3proxy --console true --dir ${LOGDIR}/ --log-level $LOG_LEVEL \
     --ttl $TTL --cache-dir $CACHE_DIR --port $PORT --threads $THREADS \

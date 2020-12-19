@@ -52,15 +52,15 @@ namespace spt::queue::tsdb
 
         auto doc = document{};
         doc << "method" << metric.method <<
-            "resource" << metric.resource <<
-            "mimeType" << metric.mimeType <<
-            "ipaddress" << metric.ipaddress <<
-            "size" << static_cast<int64_t>( metric.size ) <<
-            "time" << metric.time <<
-            "status" << metric.status <<
-            "compressed" << metric.compressed <<
-            "timestamp" << ns <<
-            "created" << bsoncxx::types::b_date( us );
+          "resource" << metric.resource <<
+          "mimeType" << metric.mimeType <<
+          "ipaddress" << metric.ipaddress <<
+          "size" << static_cast<int64_t>( metric.size ) <<
+          "time" << metric.time <<
+          "status" << metric.status <<
+          "compressed" << metric.compressed <<
+          "timestamp" << ns <<
+          "created" << bsoncxx::types::b_date( us );
 
         if ( !fields.empty() )
         {
@@ -240,8 +240,9 @@ namespace spt::queue::tsdb
     {
       const auto it = fields.find( key );
       if ( it == fields.end() ) return;
-      LOG_DEBUG << "Adding tag key: " << key << ", value: " << boost::algorithm::replace_all_copy( it->second, " ", "__" );
-      tags.emplace_back( std::move( key ), boost::algorithm::replace_all_copy( it->second, " ", "__#SPACE#__" ) );
+      auto v = boost::algorithm::replace_all_copy( it->second, " ", "__#SPACE#__" );
+      LOG_DEBUG << "Adding tag key: " << key << ", value: " << v;
+      tags.emplace_back( std::move( key ), std::move( v ) );
     };
 
     client::Akumuli client;

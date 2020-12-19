@@ -10,6 +10,9 @@
 #include "queue/queuemanager.h"
 #include "util/compress.h"
 
+#ifndef __APPLE__
+#include <unistd.h>
+#endif
 #include <chrono>
 #include <filesystem>
 #include <iostream>
@@ -519,8 +522,7 @@ namespace spt::server::impl
         // The lifetime of the message has to extend
         // for the duration of the async operation so
         // we use a shared_ptr to manage it.
-        auto sp = std::make_shared<
-            http::message<isRequest, Body, Fields>>(std::move(msg));
+        auto sp = std::make_shared<http::message<isRequest, Body, Fields>>(std::move(msg));
 
         // Store a type-erased version of the shared
         // pointer in the class to keep it alive.
@@ -652,7 +654,7 @@ namespace spt::server::impl
       }
 
       // Allow address reuse
-      acceptor_.set_option(net::socket_base::reuse_address(true), ec);
+      acceptor_.set_option(net::socket_base::reuse_address(true), ec );
       if (ec)
       {
         fail(ec, "set_option");
@@ -668,8 +670,7 @@ namespace spt::server::impl
       }
 
       // Start listening for connections
-      acceptor_.listen(
-          net::socket_base::max_listen_connections, ec);
+      acceptor_.listen( net::socket_base::max_listen_connections, ec );
       if (ec)
       {
         fail(ec, "listen");
@@ -694,8 +695,7 @@ namespace spt::server::impl
               shared_from_this()));
     }
 
-    void
-    on_accept(beast::error_code ec, tcp::socket socket)
+    void on_accept(beast::error_code ec, tcp::socket socket)
     {
       if (ec)
       {
@@ -717,6 +717,14 @@ namespace spt::server::impl
 
 int spt::server::run( model::Configuration::Ptr configuration )
 {
+#ifndef __APPLE__
+  struct sigaction sa;
+  std::memset( &sa, 0, sizeof(sa) );
+  sa.sa_handler = SIG_IGN;
+  int res = sigaction( SIGPIPE, &sa, NULL);
+  assert( res == 0 );
+#endif
+
   try
   {
     S3Util::instance( configuration );

@@ -1,6 +1,6 @@
-FROM sptrakesh/aws-sdk-s3 as aws
+FROM sptrakesh/aws-sdk-s3:1.7.344 as aws
 
-FROM sptrakesh/mongocxx-boost as base
+FROM sptrakesh/mongocxx-boost:3.5.1 as base
 
 COPY --from=aws /opt/local /opt/local
 COPY CMakeLists.txt /opt/spt/s3-proxy/CMakeLists.txt
@@ -23,6 +23,7 @@ RUN apk add --no-cache curl-dev \
 
 COPY --from=base /opt/spt/bin /opt/spt/bin
 COPY docker/scripts/entrypoint.sh /opt/spt/bin
+COPY docker/scripts/gdb.sh /opt/spt/bin
 
 WORKDIR /opt/spt
 ENV LD_LIBRARY_PATH=/usr/lib
