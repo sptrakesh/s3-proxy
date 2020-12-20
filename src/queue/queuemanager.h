@@ -13,11 +13,7 @@ namespace spt::queue
   class QueueManager
   {
   public:
-    static QueueManager& instance( model::Configuration* configuration = nullptr )
-    {
-      static QueueManager mgr( configuration );
-      return mgr;
-    }
+    static QueueManager& instance();
 
     void publish( model::Metric metric );
     bool consume( model::Metric& metric );
@@ -27,7 +23,7 @@ namespace spt::queue
     QueueManager& operator=( const QueueManager& ) = delete;
 
   private:
-    explicit QueueManager( model::Configuration* configuration );
+    explicit QueueManager( const model::Configuration& configuration );
 
     // Akumuli does not support out of sequence writes, so use a simple queue
     moodycamel::ConcurrentQueue<model::Metric> queue;

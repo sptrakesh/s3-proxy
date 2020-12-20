@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
 
-if(APPLE)
+if (APPLE)
   if (POLICY CMP0025)
     cmake_policy(SET CMP0025 NEW)
   endif()
@@ -21,7 +21,7 @@ project(s3-proxy)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(NOT CMAKE_BUILD_TYPE)
+if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
 endif()
 
@@ -34,13 +34,13 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_STATIC_RUNTIME ON)
 set(Boost_USE_MULTITHREADED ON)
-
-find_package(Boost REQUIRED COMPONENTS iostreams)
 set(OPENSSL_USE_STATIC_LIBS TRUE)
 
 if (APPLE)
   find_package(OpenSSL REQUIRED)
 endif()
+
+find_package(Boost REQUIRED COMPONENTS iostreams)
 find_package(libmongocxx-static REQUIRED)
 find_package(Threads)
 find_package(AWSSDK REQUIRED COMPONENTS s3)
@@ -54,15 +54,19 @@ include_directories(
   ${OPENSSL_INCLUDE_DIR}
 )
 
-if(UNIX AND NOT APPLE)
+if (APPLE)
+  include_directories(
+    /usr/local/aws-sdk/include
+    /usr/local/nghttp2/include
+  )
+  LINK_DIRECTORIES(
+    /usr/local/nghttp2/lib
+  )
+  set(CMAKE_MACOSX_RPATH 1)
+elseif (UNIX)
   link_directories(
     /opt/local/lib
   )
-else()
-  include_directories(
-    /usr/local/aws-sdk/include
-  )
-  set(CMAKE_MACOSX_RPATH 1)
 endif()
 
 set(CMAKE_INSTALL_PREFIX /opt/spt)

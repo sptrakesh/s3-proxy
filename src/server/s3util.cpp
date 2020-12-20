@@ -4,6 +4,7 @@
 
 #include "s3util.h"
 #include "log/NanoLog.h"
+#include "model/config.h"
 #include "util/cache.h"
 #include "util/compress.h"
 
@@ -19,10 +20,10 @@
 
 using spt::server::S3Util;
 
-S3Util& S3Util::instance( model::Configuration::Ptr configuration )
+S3Util& S3Util::instance()
 {
   Aws::InitAPI( {} );
-  static S3Util instance{ std::move( configuration ) };
+  static S3Util instance{};
   return instance;
 }
 
@@ -31,13 +32,13 @@ S3Util::~S3Util()
   Aws::ShutdownAPI( {} );
 }
 
-S3Util::S3Util( model::Configuration::Ptr config ) :
-    configuration{ std::move( config ) }
+S3Util::S3Util()
 {
+  const auto& configuration = model::Configuration::instance();
   Aws::Client::ClientConfiguration clientConfig;
-  clientConfig.region = configuration->region;
+  clientConfig.region = configuration.region;
   client = std::make_unique<Aws::S3::S3Client>(
-      Aws::Auth::AWSCredentials{ configuration->key, configuration->secret },
+      Aws::Auth::AWSCredentials{ configuration.key, configuration.secret },
       clientConfig );
 }
 
@@ -45,6 +46,7 @@ spt::model::S3Object::Ptr S3Util::get( const std::string& name )
 {
   try
   {
+    const auto& configuration = model::Configuration::instance();
     auto& cache = util::getMetadataCache();
     const auto iter = cache.find( name );
     if ( iter != cache.end() )
@@ -67,7 +69,7 @@ spt::model::S3Object::Ptr S3Util::get( const std::string& name )
     }
 
     Aws::S3::Model::GetObjectRequest request;
-    request.SetBucket( configuration->bucket );
+    request.SetBucket( configuration.bucket );
     request.SetKey( name );
 
     auto outcome = client->GetObject( request );
@@ -81,7 +83,7 @@ spt::model::S3Object::Ptr S3Util::get( const std::string& name )
       {
         LOG_INFO << "Caching not-found state till TTL expires for " << name;
         auto obj = std::make_shared<model::S3Object>();
-        obj->expires += std::chrono::seconds( configuration->ttl );
+        obj->expires += std::chrono::seconds( configuration.ttl );
         cache.put( name, obj );
         return obj;
       }
@@ -89,7 +91,7 @@ spt::model::S3Object::Ptr S3Util::get( const std::string& name )
     }
 
     std::ostringstream ss;
-    ss << configuration->cacheDir << '/' << std::hash<std::string>{}( name );
+    ss << configuration.cacheDir << '/' << std::hash<std::string>{}( name );
     const auto fileName = ss.str();
 
     const auto now = std::chrono::system_clock::now();
@@ -120,11 +122,11 @@ spt::model::S3Object::Ptr S3Util::get( const std::string& name )
     obj->cacheControl = result.GetCacheControl();
     if ( obj->cacheControl.empty() )
     {
-      obj->cacheControl = std::string{ "max-age=" }.append( std::to_string( configuration->ttl ) );
+      obj->cacheControl = std::string{ "max-age=" }.append( std::to_string( configuration.ttl ) );
     }
 
     obj->lastModified = result.GetLastModified().UnderlyingTimestamp();
-    obj->expires += std::chrono::seconds( configuration->ttl );
+    obj->expires += std::chrono::seconds( configuration.ttl );
     obj->contentLength = result.GetContentLength();
 
     cache.put( name, obj );
@@ -140,7 +142,8 @@ spt::model::S3Object::Ptr S3Util::get( const std::string& name )
 
 bool S3Util::clear( const std::string& authKey )
 {
-  if ( configuration->authKey != authKey ) return false;
+  const auto& configuration = model::Configuration::instance();
+  if ( configuration.authKey != authKey ) return false;
   LOG_INFO << "Clearing cached object metadata (" << util::getMetadataCache().count() << ")";
   util::getMetadataCache().clear();
   return true;

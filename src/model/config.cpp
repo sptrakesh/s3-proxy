@@ -10,6 +10,12 @@
 
 using spt::model::Configuration;
 
+Configuration& Configuration::instance()
+{
+  static Configuration conf;
+  return conf;
+}
+
 std::string Configuration::str() const
 {
   std::ostringstream moss;

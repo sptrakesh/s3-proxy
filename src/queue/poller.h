@@ -4,12 +4,8 @@
 
 #pragma once
 
-#include "model/config.h"
-
 #include <atomic>
 #include <memory>
-
-#include <boost/asio/io_context.hpp>
 
 namespace spt::queue
 {
@@ -22,7 +18,7 @@ namespace spt::queue
   class Poller
   {
   public:
-    Poller( boost::asio::io_context& ioc, model::Configuration::Ptr configuration );
+    Poller();
     ~Poller();
 
     Poller( const Poller& ) = delete;
@@ -34,10 +30,8 @@ namespace spt::queue
   private:
     void loop();
 
-    boost::asio::io_context& ioc;
-    model::Configuration::Ptr configuration;
-    std::unique_ptr<tsdb::MongoClient> mongo;
-    std::unique_ptr<tsdb::TSDBClient> tsdb;
+    std::unique_ptr<tsdb::MongoClient> mongo{ nullptr };
+    std::unique_ptr<tsdb::TSDBClient> tsdb{ nullptr };
     int64_t count = 0;
     std::atomic_bool running;
   };

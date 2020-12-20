@@ -1,26 +1,19 @@
 //
-// Created by Rakesh on 14/05/2020.
+// Created by Rakesh on 16/12/2020.
 //
 
 #include "mmdb.h"
+#include "contextholder.h"
 #include "log/NanoLog.h"
-#include "util/cache.h"
+#include "model/config.h"
 
 #include <vector>
 
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/asio/connect.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
+#include <boost/asio/read_until.hpp>
 
-namespace beast = boost::beast;         // from <boost/beast.hpp>
-namespace http = beast::http;           // from <boost/beast/http.hpp>
-namespace websocket = beast::websocket; // from <boost/beast/websocket.hpp>
-namespace net = boost::asio;            // from <boost/asio.hpp>
-using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
-
-namespace spt::client::mmdb
+namespace spt::client::pmmdb
 {
   std::vector<std::string_view> split( std::string_view text,
       std::size_t sizehint = 8, std::string_view delims = "\n" )
@@ -47,131 +40,97 @@ namespace spt::client::mmdb
 
     return output;
   }
+}
 
-  struct Worker
+using spt::client::MMDBConnection;
+using spt::client::MMDBConnectionPool;
+
+MMDBConnection::MMDBConnection( boost::asio::io_context& ioc, std::string_view h, std::string_view p ) :
+  s{ ioc }, resolver( ioc ),
+  host{ h.data(), h.size() }, port{ p.data(), p.size() }
+{
+  boost::asio::connect( s, resolver.resolve( host, port ) );
+}
+
+MMDBConnection::Properties MMDBConnection::fields( std::string_view ip )
+{
+  MMDBConnection::Properties  props;
+  std::string text;
+
+  try
   {
-    Worker( model::Configuration::Ptr config ) : resolver{ ioc }, ws{ ioc },
-      config{ std::move( config ) }
+    text = execute( ip );
+    if ( text == ip ) return props;
+
+    for ( auto line : pmmdb::split( text, 10, "\n" ) )
     {
+      const auto parts = pmmdb::split( line, 2, ":" );
+      auto key = std::string{ parts[0].data(), parts[0].size() };
+      boost::algorithm::trim( key );
+      auto value = std::string{ parts[1].data(), parts[1].size() };
+      boost::algorithm::trim( value );
+      props.emplace( std::move( key ), std::move( value ) );
     }
+  }
+  catch ( const std::exception& ex )
+  {
+    LOG_WARN << "Error parsing ip response " << text << '\n' << ex.what();
+  }
 
-    ~Worker()
-    {
-      try
-      {
-        if ( ws.is_open() ) ws.close( websocket::close_code::normal );
-      }
-      catch ( const std::exception& ex )
-      {
-        LOG_WARN << "Error closing websocket connection " << ex.what();
-      }
-    }
-
-    MMDBClient::Properties fields( const std::string& ip )
-    {
-      MMDBClient::Properties  props;
-      std::string text;
-
-      try
-      {
-        text = retrieve( ip );
-        if ( text == ip ) return props;
-
-        for ( auto line : split( text, 10, "\n" ) )
-        {
-          const auto parts = split( line, 2, ":" );
-          auto key = std::string{ parts[0].data(), parts[0].size() };
-          boost::algorithm::trim( key );
-          auto value = std::string{ parts[1].data(), parts[1].size() };
-          boost::algorithm::trim( value );
-          props.emplace( std::move( key ), std::move( value ) );
-        }
-      }
-      catch ( const std::exception& ex )
-      {
-        LOG_WARN << "Error parsing ip response " << text << '\n' << ex.what();
-      }
-
-      return props;
-    }
-
-  private:
-    void connect()
-    {
-      try
-      {
-        if ( ws.is_open() ) return;
-
-        auto const results = resolver.resolve( config->mmdbHost, std::to_string( config->mmdbPort ) );
-        net::connect( ws.next_layer(), results.begin(), results.end() );
-
-        ws.set_option(websocket::stream_base::decorator(
-            []( websocket::request_type& req )
-            {
-              req.set( http::field::user_agent, std::string(BOOST_BEAST_VERSION_STRING) + " websocket" );
-            }));
-
-        ws.handshake( config->mmdbHost, "/" );
-        LOG_INFO << "Started websocket connection to " << config->mmdbHost;
-      }
-      catch ( const std::exception& ex )
-      {
-        LOG_CRIT << "Error initiating MMDB websocket connection " << ex.what();
-      }
-    }
-
-    std::string retrieve( const std::string& ip )
-    {
-      auto& cache = util::getLocationCache();
-      auto iter = cache.find( ip );
-      if ( iter != cache.end() ) return iter->second;
-
-      try
-      {
-        connect();
-        const std::string req = "f:" + ip;
-        ws.write( net::buffer( req ) );
-        beast::flat_buffer buffer;
-        ws.read( buffer );
-
-        std::ostringstream ss;
-        ss << beast::make_printable( buffer.data() );
-        auto value = ss.str();
-        cache.put( ip, value );
-        return value;
-      }
-      catch ( const std::exception& ex )
-      {
-        LOG_WARN << "Error querying ip " << ip << ' ' << ex.what();
-      }
-
-      return {};
-    }
-
-    net::io_context ioc;
-    tcp::resolver resolver;
-    websocket::stream<tcp::socket> ws;
-    model::Configuration::Ptr config;
-  };
+  return props;
 }
 
-using spt::client::MMDBClient;
-
-MMDBClient::~MMDBClient()
+std::string MMDBConnection::execute( std::string_view query )
 {
-  delete worker;
+  std::ostream os{ &buffer };
+  os << "f:" << query << '\n';
+
+  const auto isize = socket().send( buffer.data() );
+  buffer.consume( isize );
+
+  boost::system::error_code ec;
+  auto osize = boost::asio::read_until( socket(), buffer, "\n\n", ec );
+  if ( ec )
+  {
+    LOG_WARN << "Error reading from socket " << ec.message() << '\n';
+    return {};
+  }
+
+  buffer.commit( osize );
+
+  auto resp = std::string{ reinterpret_cast<const char*>( buffer.data().data() ), osize };
+  boost::algorithm::trim( resp );
+  resp.erase( std::remove( std::begin( resp ), std::end( resp ), '\0' ), std::end( resp ) );
+
+  buffer.consume( buffer.size() );
+  return resp;
 }
 
-MMDBClient& MMDBClient::instance( spt::model::Configuration::Ptr config )
+std::unique_ptr<MMDBConnection> spt::client::createMMDBPool()
 {
-  static MMDBClient client( std::move( config ) );
-  return client;
+  const auto& conf = model::Configuration::instance();
+  return std::make_unique<MMDBConnection>(
+      ContextHolder::instance().ioc, conf.mmdbHost, std::to_string( conf.mmdbPort ) );
 }
 
-MMDBClient::MMDBClient( spt::model::Configuration::Ptr config ) :
-  worker{ new mmdb::Worker( std::move( config ) ) } {}
-
-MMDBClient::Properties MMDBClient::query( const std::string& ip )
+boost::asio::ip::tcp::socket& MMDBConnection::socket()
 {
-  return worker->fields( ip );
+  if ( ! s.is_open() ) boost::asio::connect( s, resolver.resolve( host, port ) );
+  return s;
+}
+
+MMDBConnectionPool& MMDBConnectionPool::instance()
+{
+  static MMDBConnectionPool instance;
+  return instance;
+}
+
+auto MMDBConnectionPool::acquire() -> std::optional<Pool<MMDBConnection>::Proxy>
+{
+  return pool->acquire();
+}
+
+MMDBConnectionPool::MMDBConnectionPool() :
+  pool{ std::make_unique<Pool<MMDBConnection>>( spt::client::createMMDBPool, Configuration{} ) }
+{
 }

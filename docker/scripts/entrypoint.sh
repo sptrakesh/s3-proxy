@@ -72,7 +72,7 @@ Extras()
 {
   if [ -z "$MMDB_PORT" ]
   then
-    MMDB_PORT=8010
+    MMDB_PORT=2010
     echo "MMDB_PORT not set.  Will default to $MMDB_PORT"
   fi
 
@@ -138,6 +138,50 @@ Extras()
   fi
 }
 
+Wait()
+{
+  if [ -n "$NO_CHECK" ]
+  then
+    return 0
+  fi
+
+  if [ -n "$MONGO_URI" ]
+  then
+    status=1
+    count=0
+    echo "Checking if Mongo Host is available"
+    while [ $status -ne 0 ]
+    do
+      mh=`echo $MONGO_URI | awk -F/ '{print $3}' | awk -F@ '{print $2}' | awk -F: '{print $1}'`
+      mp=`echo $MONGO_URI | awk -F/ '{print $3}' | awk -F@ '{print $2}' | awk -F: '{print $2}'`
+      if [ -z "$mp" ]
+      then
+        mp='27017'
+      fi
+      echo "[$count] Mongo Service $mh:$mp not available ($status).  Sleeping 1s..."
+      count=$(($count + 1 ))
+      sleep 1
+      nc -z $mh $mp
+      status=$?
+    done
+  fi
+
+  if [ -n "$MMDB_HOST" ]
+  then
+    status=1
+    count=0
+    echo "Checking if $MMDB_HOST is available"
+    while [ $status -ne 0 ]
+    do
+      echo "[$count] MMDB Service $MMDB_HOST:$MMDB_PORT not available ($status).  Sleeping 1s..."
+      count=$(($count + 1 ))
+      sleep 1
+      nc -z $MMDB_HOST $MMDB_PORT
+      status=$?
+    done
+  fi
+}
+
 Service()
 {
   if [ -n "$DEBUG" ]
@@ -154,4 +198,4 @@ Service()
     --auth-key $AUTH_KEY $args
 }
 
-Check && Defaults && Extras && Service
+Check && Defaults && Extras && Wait && Service

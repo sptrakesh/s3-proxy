@@ -8,8 +8,14 @@
 using spt::queue::QueueManager;
 using spt::model::Metric;
 
-QueueManager::QueueManager( spt::model::Configuration* configuration ) :
-    enabled{ model::publishMetrics( *configuration ) }
+QueueManager& QueueManager::instance()
+{
+  static QueueManager mgr{ model::Configuration::instance() };
+  return mgr;
+}
+
+QueueManager::QueueManager( const model::Configuration& config ) :
+    enabled{ model::publishMetrics( config ) }
 {
   LOG_INFO << "Queue manager initialised.  Enabled: " << enabled;
 }

@@ -2,7 +2,8 @@
 
 CACHE_DIR="/opt/spt/data"
 LOGDIR=/opt/spt/logs
-MMDB_PORT=8010
+MMDB_HOST="mmdb-ws"
+MMDB_PORT=2010
 MONGO_DATABASE="metrics"
 MONGO_COLLECTION="request"
 PORT=8000

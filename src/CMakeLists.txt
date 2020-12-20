@@ -6,8 +6,15 @@ target_compile_definitions(s3proxy
   PRIVATE ${LIBMONGOCXX_STATIC_DEFINITIONS}
 )
 
-target_link_libraries(s3proxy
-  PRIVATE ${AWSSDK_LINK_LIBRARIES} ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost Boost::iostreams ${OPENSSL_LIBRARIES} z
-)
+
+if (APPLE)
+  target_link_libraries(s3proxy
+    PRIVATE ${AWSSDK_LINK_LIBRARIES} ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost Boost::iostreams -lnghttp2_asio ${OPENSSL_LIBRARIES} z
+  )
+else()
+  target_link_libraries(s3proxy
+    PRIVATE ${AWSSDK_LINK_LIBRARIES} ${LIBMONGOCXX_STATIC_LIBRARIES} Boost::boost Boost::iostreams -lnghttp2 -lnghttp2_asio ${OPENSSL_LIBRARIES} z
+  )
+endif()
 
 install(TARGETS s3proxy DESTINATION bin)

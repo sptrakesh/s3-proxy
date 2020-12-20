@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <memory>
 #include <string>
 #include <thread>
 
@@ -12,12 +11,11 @@ namespace spt::model
 {
   struct Configuration
   {
-    using Ptr = std::shared_ptr<Configuration>;
+    static Configuration& instance();
 
-    Configuration() = default;
     ~Configuration() = default;
-    Configuration( Configuration&& ) = default;
-    Configuration& operator=( Configuration&& ) = default;
+    Configuration( Configuration&& ) = delete;
+    Configuration& operator=( Configuration&& ) = delete;
 
     Configuration( const Configuration& ) = delete;
     Configuration& operator=( const Configuration& ) = delete;
@@ -43,6 +41,9 @@ namespace spt::model
     bool rejectQueryStrings = false;
 
     [[nodiscard]] std::string str() const;
+
+  private:
+    Configuration() = default;
   };
 
   bool publishMetrics( const Configuration& config );

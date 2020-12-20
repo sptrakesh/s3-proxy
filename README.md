@@ -1,5 +1,6 @@
 # s3-proxy
 
+* [Versions](#versions)
 * [Configuration](#configuration)
     * [Metric](#metric)
         * [BSON Document](#bson-document)
@@ -16,6 +17,15 @@ Useful in cases where it is not feasible to use traditional CloudFront distribut
 or similar CDN on top of a bucket.
 
 In particular it is possible to serve static content from a private S3 bucket.
+
+## Versions
+Two versions (branches) of the service are available.  The original version
+(tracked in the `master` branch) runs the service as a HTTP/1.1 service using
+Boost:Beast.  The other version (tracked in the `http2` branch) runs the service
+as a pure HTTP/2 service using [nghttp2](https://github.com/nghttp2/nghttp2).
+The version are published to docker hub as the following:
+* `0.x.x` - The original HTTP/1.1 service.
+* `2.x.x` - The new HTTP/2 service.
 
 ## Configuration
 The server can be configured with the following options:
@@ -61,7 +71,7 @@ rotated daily.  Default `logs/` directory under the current working directory.
 * `--mmdb-host` - If integration with [mmdb-ws](https://github.com/sptrakesh/mmdb-ws)
 is desired, specify the hostname for the service.
 * `--mmdb-port` - Port on which the `mmdb-ws` service is listening.  Default is
-`8010`.  Only relevant if `--mmdb-host` is specified.
+`2010`.  Only relevant if `--mmdb-host` is specified.
 * `--akumuli-host` - If metrics are to be published to [Akumuli](https://akumuli.org/).
 Works in combination with `--mmdb-host`.  Disabled if not specified.
 * `--akumuli-port` - Port on which *Akumuli* TCP write service listens.  Default
@@ -232,13 +242,8 @@ The following are the components used to build this software:
 `http` server implementation.  The implementation is a modified version of the
 [async](https://github.com/boostorg/beast/tree/develop/example/http/server/async)
 example.
-    * **Note:** I initially started with the [fast](https://github.com/boostorg/beast/tree/develop/example/http/server/fast)
-    implementation.  That implementation seems to have some kind of race/locking
-    issue which was very repeatable (service has been tested with `ab`).  Every
-    16000 or so requests, the server would become unresponsive until the built
-    in `30s` watch expired and requests were rejected.
-    * **Note:** After further testing, this seems to affect all beast examples.
-    Tried `stackless` and `async` with identical issues.
+* **[nghttp2](https://github.com/nghttp2/nghttp2)** - We use *nghttp2* for the
+  `HTTP/2` server implementation.
 * **[AWS SDK](https://github.com/aws/aws-sdk-cpp)** - We use the **S3** module
 to access the underlying *S3 bucket*.
 * **[Clara](https://github.com/catchorg/Clara)** - Command line options parser.

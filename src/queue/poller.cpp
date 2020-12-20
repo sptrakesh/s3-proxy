@@ -4,9 +4,11 @@
 
 #include "poller.h"
 #include "queuemanager.h"
+#include "contextholder.h"
 #include "client/akumuli.h"
 #include "client/mmdb.h"
 #include "log/NanoLog.h"
+#include "model/config.h"
 #include "util/date.h"
 
 #include <boost/algorithm/string/replace.hpp>
@@ -21,10 +23,10 @@ namespace spt::queue::tsdb
 {
   struct MongoClient
   {
-    MongoClient( model::Configuration* configuration ) :
-      database{ configuration->mongoDatabase }, collection{ configuration->mongoCollection }
+    MongoClient( const model::Configuration& configuration ) :
+      database{ configuration.mongoDatabase }, collection{ configuration.mongoCollection }
     {
-      const auto uri = mongocxx::uri{ configuration->mongoUri };
+      const auto uri = mongocxx::uri{ configuration.mongoUri };
       client = std::make_unique<mongocxx::client>( uri );
       LOG_INFO << "Connected to mongo";
 
@@ -38,7 +40,7 @@ namespace spt::queue::tsdb
       }
     }
 
-    void save( const model::Metric& metric, client::MMDBClient::Properties& fields )
+    void save( const model::Metric& metric, client::MMDBConnection::Properties& fields )
     {
       using bsoncxx::builder::stream::document;
       using bsoncxx::builder::stream::open_document;
@@ -100,9 +102,9 @@ namespace spt::queue::tsdb
 
   struct TSDBClient
   {
-    TSDBClient( boost::asio::io_context& ioc, model::Configuration* configuration ) :
-        client{ ioc, configuration->akumuli, configuration->akumuliPort },
-        configuration{ configuration }
+    TSDBClient( boost::asio::io_context& ioc, const model::Configuration& configuration ) :
+        client{ ioc, configuration.akumuli, configuration.akumuliPort },
+        metricPrefix{ configuration.metricPrefix }
     {
       client.connect();
     }
@@ -112,7 +114,7 @@ namespace spt::queue::tsdb
       client.stop();
     }
 
-    void save( const model::Metric& metric, const client::MMDBClient::Properties& fields )
+    void save( const model::Metric& metric, const client::MMDBConnection::Properties& fields )
     {
       ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
           std::chrono::system_clock::now().time_since_epoch() );
@@ -127,7 +129,7 @@ namespace spt::queue::tsdb
     void saveCount( const model::Metric& metric )
     {
       std::ostringstream ss;
-      ss << configuration->metricPrefix;
+      ss << metricPrefix;
       ss << ".counter";
 
       auto tags = client::Tags{};
@@ -143,7 +145,7 @@ namespace spt::queue::tsdb
     void saveSize( const model::Metric& metric )
     {
       std::ostringstream ss;
-      ss << configuration->metricPrefix;
+      ss << metricPrefix;
       ss << ".size";
 
       auto tags = client::Tags{};
@@ -160,7 +162,7 @@ namespace spt::queue::tsdb
     void saveTime( const model::Metric& metric )
     {
       std::ostringstream ss;
-      ss << configuration->metricPrefix;
+      ss << metricPrefix;
       ss << ".time";
 
       auto nanos = std::chrono::nanoseconds{ metric.time };
@@ -177,7 +179,7 @@ namespace spt::queue::tsdb
           ns, millis.count() } );
     }
 
-    void saveLocation( const model::Metric& metric, const client::MMDBClient::Properties& fields )
+    void saveLocation( const model::Metric& metric, const client::MMDBConnection::Properties& fields )
     {
       if ( fields.empty() ) return;
 
@@ -195,10 +197,10 @@ namespace spt::queue::tsdb
 
         std::ostringstream oss;
         oss << R"({"type": "geo:json", "value": {"type": "Point", "coordinates": [)" <<
-            lat << ',' << lng <<
-            R"(]}, "metadata": {"timestamp": {"type": "DateTime", "value": ")" <<
-            util::isoDate( mms.count() ) <<
-            R"("}}})";
+          lat << ',' << lng <<
+          R"(]}, "metadata": {"timestamp": {"type": "DateTime", "value": ")" <<
+          util::isoDate( mms.count() ) <<
+          R"("}}})";
         return oss.str();
       };
 
@@ -209,7 +211,7 @@ namespace spt::queue::tsdb
         return;
       }
       std::ostringstream ss;
-      ss << configuration->metricPrefix;
+      ss << metricPrefix;
       ss << ".location";
 
       auto tags = client::Tags{};
@@ -236,7 +238,7 @@ namespace spt::queue::tsdb
     }
 
     void addTag( client::Tags& tags,
-        const client::MMDBClient::Properties& fields, std::string key )
+        const client::MMDBConnection::Properties& fields, std::string key )
     {
       const auto it = fields.find( key );
       if ( it == fields.end() ) return;
@@ -246,27 +248,26 @@ namespace spt::queue::tsdb
     };
 
     client::Akumuli client;
-    model::Configuration* configuration;
+    std::string metricPrefix;
     std::chrono::nanoseconds ns;
   };
 }
 
 using spt::queue::Poller;
 
-Poller::Poller( boost::asio::io_context& ioc, spt::model::Configuration::Ptr configuration ) :
-    ioc{ ioc }, configuration{ std::move( configuration ) } {}
-
+Poller::Poller() = default;
 Poller::~Poller() = default;
 
 void Poller::run()
 {
-  if ( !configuration->mongoUri.empty() )
+  const auto& configuration = model::Configuration::instance();
+  if ( !configuration.mongoUri.empty() )
   {
-    mongo = std::make_unique<tsdb::MongoClient>( configuration.get() );
+    mongo = std::make_unique<tsdb::MongoClient>( configuration );
   }
-  if ( !configuration->akumuli.empty() )
+  if ( !configuration.akumuli.empty() )
   {
-    tsdb = std::make_unique<tsdb::TSDBClient>( ioc, configuration.get() );
+    tsdb = std::make_unique<tsdb::TSDBClient>( ContextHolder::instance().ioc, configuration );
   }
 
   running.store( true );
@@ -299,7 +300,14 @@ void Poller::loop()
   auto metric = model::Metric{};
   while ( queue.consume( metric ) )
   {
-    auto fields = client::MMDBClient::instance().query( metric.ipaddress );
+    client::MMDBConnection::Properties fields;
+    auto proxy = client::MMDBConnectionPool::instance().acquire();
+    if ( proxy )
+    {
+      fields = (*proxy)->fields( metric.ipaddress );
+    }
+    else LOG_WARN << "Unable to connect to mmdb-ws service";
+
     if ( fields.empty() )
     {
       LOG_WARN << "No properties for ip address " << metric.ipaddress;

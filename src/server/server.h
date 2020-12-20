@@ -7,5 +7,5 @@
 
 namespace spt::server
 {
-  int run( model::Configuration::Ptr configuration );
+  int run();
 }
