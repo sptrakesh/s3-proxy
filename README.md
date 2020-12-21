@@ -20,8 +20,8 @@ In particular it is possible to serve static content from a private S3 bucket.
 
 ## Versions
 Two versions (branches) of the service are available.  The original version
-(tracked in the `master` branch) runs the service as a HTTP/1.1 service using
-Boost:Beast.  The other version (tracked in the `http2` branch) runs the service
+(tracked in the `http1` branch) runs the service as a HTTP/1.1 service using
+Boost:Beast.  The other version (tracked in the `master` branch) runs the service
 as a pure HTTP/2 service using [nghttp2](https://github.com/nghttp2/nghttp2).
 The version are published to docker hub as the following:
 * `0.x.x` - The original HTTP/1.1 service.
@@ -221,6 +221,67 @@ docker run -d --rm \
   -e AWS_SECRET="<your secret>" \
   -e AUTH_KEY="<your desired bearer token>" \
   --name s3-proxy sptrakesh/s3-proxy
+```
+
+#### Envoy Proxy
+We deploy the `HTTP/2` service behind [envoy](https://www.envoyproxy.io/).  This
+allows clients to `HTTP/1.0`, `HTTP/1.1`, and `HTTP/2` to access the service. A
+simple configuration is shown below:
+
+```yaml
+static_resources:
+  listeners:
+    - address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8000
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                codec_type: auto
+                stat_prefix: version_history_api
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: backend
+                      domains:
+                        - "*"
+                      routes:
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: s3-proxy
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config: {}
+  clusters:
+    - name: s3-proxy
+      connect_timeout: 0.25s
+      type: strict_dns
+      lb_policy: random
+      http2_protocol_options: {}
+      health_checks:
+        - interval: 15s
+          interval_jitter: 1s
+          no_traffic_interval: 60s
+          timeout: 2s
+          unhealthy_threshold: 1
+          healthy_threshold: 3
+          http_health_check:
+            path: /
+            codec_client_type: HTTP2
+          always_log_health_check_failures: true
+      load_assignment:
+        cluster_name: s3-proxy
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: s3-proxy
+                      port_value: 8000
 ```
 
 ## Cache Management
