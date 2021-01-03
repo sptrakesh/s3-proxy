@@ -5,11 +5,16 @@
 #include "handlers.h"
 #include "log/NanoLog.h"
 
+#include <boost/asio/ip/address.hpp>
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/trim.hpp>
+
+#include <vector>
 
 void spt::server::cors( const nghttp2::asio_http2::server::response& res )
 {
@@ -65,10 +70,25 @@ std::string spt::server::ipaddress( const nghttp2::asio_http2::server::request& 
   if ( iter == std::cend( header ) ) iter = header.find( "x-forwarded-for" );
   if ( iter != std::cend( header ) )
   {
+    const auto trimmed = boost::algorithm::trim_copy( iter->second.value );
+    std::vector<std::string> parts;
+    parts.reserve( 4 );
+    boost::split( parts, trimmed, [](char c){return c == ',' || c == ' ';});
+
+    boost::system::error_code ec;
+    boost::asio::ip::address::from_string( parts[0], ec );
+    if ( !ec ) return parts[0];
+
     // Trim any port part from address
-    const auto pos = iter->second.value.find( ':' );
-    return pos != std::string::npos ? iter->second.value.substr( 0, pos ) :
-        iter->second.value;
+    const auto pos = parts[0].find( ':' );
+    if ( pos != std::string::npos )
+    {
+      auto val = parts[0].substr( 0, pos );
+      boost::asio::ip::address::from_string( val, ec );
+      if ( !ec ) return val;
+    }
+
+    LOG_WARN << "Invalid IP address " << parts[0] << ". " << ec.message();
   }
 
   return req.remote_endpoint().address().to_string();

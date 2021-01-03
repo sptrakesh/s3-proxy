@@ -24,20 +24,14 @@ namespace spt::queue::tsdb
   struct MongoClient
   {
     MongoClient( const model::Configuration& configuration ) :
-      database{ configuration.mongoDatabase }, collection{ configuration.mongoCollection }
+      database{ configuration.mongoDatabase }, collection{ configuration.mongoCollection },
+      client{ std::make_unique<mongocxx::client>( mongocxx::uri{ configuration.mongoUri } ) }
     {
-      const auto uri = mongocxx::uri{ configuration.mongoUri };
-      client = std::make_unique<mongocxx::client>( uri );
       LOG_INFO << "Connected to mongo";
 
-      try
-      {
-        index();
-      }
-      catch ( const std::exception& ex )
-      {
-        LOG_CRIT << "Error indexing collection " << collection << ".\n" << ex.what();
-      }
+      mongocxx::write_concern wc;
+      wc.acknowledge_level( mongocxx::write_concern::level::k_unacknowledged );
+      opts.write_concern( std::move( wc ) );
     }
 
     void save( const model::Metric& metric, client::MMDBConnection::Properties& fields )
@@ -62,7 +56,7 @@ namespace spt::queue::tsdb
           "status" << metric.status <<
           "compressed" << metric.compressed <<
           "timestamp" << ns <<
-          "created" << bsoncxx::types::b_date( us );
+          "created" << bsoncxx::types::b_date{ us };
 
         if ( !fields.empty() )
         {
@@ -71,7 +65,7 @@ namespace spt::queue::tsdb
           doc << close_document;
         }
 
-        (*client)[database][collection].insert_one( doc << finalize );
+        (*client)[database][collection].insert_one( doc << finalize, opts );
       }
       catch ( const std::exception& ex )
       {
@@ -80,21 +74,7 @@ namespace spt::queue::tsdb
     }
 
   private:
-    void index()
-    {
-      using bsoncxx::builder::stream::document;
-      using bsoncxx::builder::stream::finalize;
-
-      (*client)[database][collection].create_index(
-          document{} << "method" << 1 << finalize );
-      (*client)[database][collection].create_index(
-          document{} << "resource" << 1 << finalize );
-      (*client)[database][collection].create_index(
-          document{} << "status" << 1 << finalize );
-      (*client)[database][collection].create_index(
-          document{} << "timestamp" << 1 << finalize );
-    }
-
+    mongocxx::options::insert opts;
     std::string database;
     std::string collection;
     std::unique_ptr<mongocxx::client> client = nullptr;
