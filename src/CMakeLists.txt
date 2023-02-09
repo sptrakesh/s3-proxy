@@ -6,6 +6,19 @@ target_compile_definitions(s3proxy
   PRIVATE ${LIBMONGOCXX_STATIC_DEFINITIONS}
 )
 
+if (CMAKE_BUILD_TYPE MATCHES Debug)
+  message(STATUS "Debug build, not enabling IPO/LTO")
+else()
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT result OUTPUT output LANGUAGES CXX)
+  if (result)
+    message(STATUS "IPO is supported: ${output}")
+    set_property(TARGET s3proxy PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized -flto=auto")
+  else()
+    message(STATUS "IPO is not supported: ${output}")
+  endif()
+endif (CMAKE_BUILD_TYPE MATCHES Debug)
 
 if (APPLE)
   target_link_libraries(s3proxy

@@ -3,6 +3,66 @@
 LOGDIR=/opt/spt/logs
 ttl=''
 
+FromDb()
+{
+  cmd="/opt/spt/bin/configctl -s $1 -p $2"
+  if [ -n "$3" ]
+  then
+    cmd="$cmd $3"
+  fi
+
+  status=1
+  count=0
+  echo "Checking if $1 is available"
+  while [ $status -ne 0 ]
+  do
+    echo "[$count] Config-db Service $1:$2 not available ($status).  Sleeping 1s..."
+    count=$(($count + 1 ))
+    sleep 1
+    nc -z $1 $2
+    status=$?
+  done
+
+  status=1
+  count=0
+  echo "Checking if $1 has been bootstrapped"
+  while [ $status -ne 0 ]
+  do
+    echo "[$count] Config-db Service $1:$2 not bootstrapped ($status).  Sleeping 1s..."
+    count=$(($count + 1 ))
+    sleep 1
+    $cmd -a get -k /database/mongo/uri
+    status=$?
+  done
+
+  MONGO_URI=`$cmd -a get -k /database/mongo/uri`
+  MONGO_URI=`/opt/spt/bin/encrypter -d $MONGO_URI`
+}
+
+ConfigDb()
+{
+  if [ -z "$CONFIG_DB" ]
+  then
+    return
+  fi
+
+  server=`echo $CONFIG_DB | cut -d ':' -f1`
+  port=`echo $CONFIG_DB | cut -d ':' -f2`
+  FromDb $server $port
+}
+
+SecureConfigDb()
+{
+  if [ -z "$SECURE_CONFIG_DB" ]
+  then
+    return
+  fi
+
+  server=`echo $SECURE_CONFIG_DB | cut -d ':' -f1`
+  port=`echo $SECURE_CONFIG_DB | cut -d ':' -f2`
+  FromDb $server $port "--with-ssl"
+}
+
 Check()
 {
   if [ -z "$AWS_REGION" ]
@@ -198,4 +258,4 @@ Service()
     --auth-key $AUTH_KEY $args
 }
 
-Check && Defaults && Extras && Wait && Service
+ConfigDb && SecureConfigDb && Check && Defaults && Extras && Wait && Service

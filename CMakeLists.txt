@@ -1,24 +1,14 @@
 cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
 
-if (APPLE)
-  if (POLICY CMP0025)
-    cmake_policy(SET CMP0025 NEW)
-  endif()
-  if (POLICY CMP0028)
-    cmake_policy(SET CMP0028 NEW)
-  endif()
-  if (POLICY CMP0042)
-    cmake_policy(SET CMP0042 NEW)
-  endif()
-  if (POLICY CMP0043)
-    cmake_policy(SET CMP0043 NEW)
-  endif()
+# For INTERPROCEDURAL_OPTIMIZATION
+if (POLICY CMP0069)
+  cmake_policy(SET CMP0069 NEW)
 endif()
 
 project(s3-proxy)
 
-# Enable C++17 features
-set(CMAKE_CXX_STANDARD 17)
+# Enable C++20 features
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (NOT CMAKE_BUILD_TYPE)

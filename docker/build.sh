@@ -1,12 +1,11 @@
 #!/bin/sh
 
-DIR=`dirname $0`
-. $DIR/env.sh
+cd `dirname $0`/..
+. docker/env.sh
 
 Docker()
 {
-  (cd $DIR/..;
-    docker build --compress --force-rm -f docker/Dockerfile -t $NAME .)
+  docker buildx build --platform linux/arm64,linux/amd64 --compress --force-rm -f docker/Dockerfile --push -t sptrakesh/$NAME:$VERSION -t sptrakesh/$NAME:latest .
 }
 
 Docker

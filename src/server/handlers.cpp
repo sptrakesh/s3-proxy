@@ -20,7 +20,8 @@ void spt::server::cors( const nghttp2::asio_http2::server::response& res )
 {
   auto headers = nghttp2::asio_http2::header_map{
       {"Access-Control-Allow-Origin", {"*", false}},
-      {"Access-Control-Allow-Methods", {"GET,OPTIONS", false}}
+      {"Access-Control-Allow-Methods", {"GET,OPTIONS", false}},
+      {"Access-Control-Allow-Headers", {"*, authorization", false}},
   };
 
   res.write_head(204, headers);
@@ -33,7 +34,7 @@ auto spt::server::compress( std::string_view data ) -> Output
   if ( data.size() < 128 )
   {
     LOG_INFO << "Uncompressed size: " << int( data.size() ) << " less than 128, not compressing";
-    return { {}, false };
+    return { std::string{}, false };
   }
 
   bio::stream<bio::array_source> source( data.data(), data.size() );

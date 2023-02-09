@@ -36,6 +36,8 @@ namespace spt::server::impl
     if ( iequals( ext, ".txt" )) return "text/plain";
     if ( iequals( ext, ".js" )) return "application/javascript";
     if ( iequals( ext, ".json" )) return "application/json";
+    if ( iequals( ext, ".yml" )) return "application/yaml";
+    if ( iequals( ext, ".yaml" )) return "application/yaml";
     if ( iequals( ext, ".xml" )) return "application/xml";
     if ( iequals( ext, ".swf" )) return "application/x-shockwave-flash";
     if ( iequals( ext, ".flv" )) return "video/x-flv";
@@ -268,7 +270,7 @@ void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
     std::string path = impl::path_cat( conf.cacheDir, metric.resource );
     if ( metric.resource.back() == '/' ) path.append( "index.html" );
 
-    if ( downloaded->contentType.empty() ) metric.mimeType = impl::mime_type( path ).to_string();
+    if ( downloaded->contentType.empty() ) metric.mimeType = std::string{ impl::mime_type( path ) };
     else metric.mimeType = downloaded->contentType;
 
     const auto compressed = shouldCompress( req ) && impl::should_compress( path );
@@ -308,6 +310,9 @@ void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
     metric.compressed = compressed;
 
     auto headers = nghttp2::asio_http2::header_map{
+        {"Access-Control-Allow-Origin", {"*", false}},
+        {"Access-Control-Allow-Methods", {"GET,OPTIONS", false}},
+        {"Access-Control-Allow-Headers", {"*, authorization", false}},
         {"content-type", { metric.mimeType, false } },
         { "etag", { downloaded->etag, false } },
         { "expires", { downloaded->expirationTime(), false } },

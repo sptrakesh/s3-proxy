@@ -1,12 +1,13 @@
 //
 // Created by Rakesh on 2019-05-15.
 //
+// http://wordaligned.org/articles/cpp-streambufs
 
 #pragma once
 #include <ostream>
 #include <streambuf>
 
-namespace wirepulse::log
+namespace spt::log
 {
   class teestream;
 
