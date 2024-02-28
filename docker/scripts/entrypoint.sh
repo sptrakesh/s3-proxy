@@ -35,8 +35,13 @@ FromDb()
     status=$?
   done
 
-  MONGO_URI=`$cmd -a get -k /database/mongo/uri`
-  MONGO_URI=`/opt/spt/bin/encrypter -d $MONGO_URI`
+  if [ -n "$4" ]
+  then
+    export ALLOWED_ORIGINS=`$cmd -a get -k $4`
+  else
+    MONGO_URI=`$cmd -a get -k /database/mongo/uri`
+    MONGO_URI=`/opt/spt/bin/encrypter -d $MONGO_URI`
+  fi
 }
 
 ConfigDb()
@@ -196,6 +201,19 @@ Extras()
   then
     args="$args --reject-query-strings $REJECT_QUERY_STRINGS"
   fi
+
+  if [ -n "$ALLOWED_ORIGINS_KEY" ]
+  then
+    if [ -n "$SECURE_CONFIG_DB" ]
+    then
+      FromDb $server $port "--with-ssl" $ALLOWED_ORIGINS_KEY
+    elif [ -n "$CONFIG_DB" ]
+    then
+      FromDb $server $port ' ' $ALLOWED_ORIGINS_KEY
+    else
+      echo "ConfigDb not configured"
+    fi
+  fi
 }
 
 Wait()
@@ -242,7 +260,7 @@ Wait()
   fi
 }
 
-Service()
+runService()
 {
   if [ -n "$DEBUG" ]
   then
@@ -250,12 +268,20 @@ Service()
     tail -f /dev/null
   fi
 
-  echo "Starting up AWS S3 proxy server"
+  echo "`date` Starting up AWS S3 proxy server" >> /tmp/start.log
   /opt/spt/bin/s3proxy --console true --dir ${LOGDIR}/ --log-level $LOG_LEVEL \
     --ttl $TTL --cache-dir $CACHE_DIR --port $PORT --threads $THREADS \
     --region "$AWS_REGION" --bucket "$S3_BUCKET" \
     --key "$AWS_KEY" --secret "$AWS_SECRET" \
     --auth-key $AUTH_KEY $args
+}
+
+Service()
+{
+  while true
+  do
+    runService
+  done
 }
 
 ConfigDb && SecureConfigDb && Check && Defaults && Extras && Wait && Service

@@ -1,8 +1,8 @@
-FROM sptrakesh/aws-sdk-s3:gcc as aws
-FROM sptrakesh/config-db as config
-FROM sptrakesh/encrypter:gcc as encrypter
-FROM sptrakesh/mongocxx:gcc as mongo
-FROM sptrakesh/nghttp2:gcc as base
+FROM sptrakesh/aws-sdk-s3 as aws
+FROM sptrakesh/config-db:alpine as config
+FROM sptrakesh/encrypter as encrypter
+FROM sptrakesh/mongocxx as mongo
+FROM sptrakesh/nghttp2 as base
 
 COPY --from=aws /opt/local /opt/local
 COPY --from=mongo /opt/local /opt/local
@@ -10,16 +10,17 @@ COPY CMakeLists.txt /opt/spt/s3-proxy/CMakeLists.txt
 COPY src /opt/spt/s3-proxy/src
 
 WORKDIR /opt/spt/s3-proxy/build
-RUN  apt-get install -y libcurl4 libsnappy1v5 \
+RUN apk add --no-cache curl-dev snappy-dev openssl-libs-static \
   && rm -rf * \
-  && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/local .. \
+  && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/local -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=mold" -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=mold" .. \
   && make -j8 \
   && make install
 
-FROM sptrakesh/cppruntime:gcc
+FROM sptrakesh/cppruntime
 
-RUN  apt-get install -y libcurl4 libsnappy1v5 \
-  && adduser --shell /bin/sh --home /home/spt spt \
+RUN apk add --no-cache libcurl snappy \
+  && addgroup spt \
+  && adduser -DS -g "SPT User" -G spt -s /bin/sh -h /home/spt spt \
   && mkdir -p /opt/spt/logs /opt/spt/data \
   && chown spt:spt /opt/spt/logs /opt/spt/data
 

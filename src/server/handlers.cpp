@@ -3,28 +3,98 @@
 //
 
 #include "handlers.h"
+#include "model/config.h"
 #include "log/NanoLog.h"
 
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/trim.hpp>
+#include <boost/json/parse.hpp>
 
+#include <cstdlib>
 #include <vector>
+#include <fmt/ranges.h>
+#include <range/v3/algorithm/find.hpp>
 
-void spt::server::cors( const nghttp2::asio_http2::server::response& res )
+using std::operator""sv;
+
+namespace spt::server::phandlers
 {
-  auto headers = nghttp2::asio_http2::header_map{
-      {"Access-Control-Allow-Origin", {"*", false}},
-      {"Access-Control-Allow-Methods", {"GET,OPTIONS", false}},
-      {"Access-Control-Allow-Headers", {"*, authorization", false}},
+  struct Holder
+  {
+    static Holder& instance()
+    {
+      static Holder h;
+      return h;
+    }
+
+    std::vector<std::string> origins;
+
+  private:
+    Holder()
+    {
+      if ( const char* env_p = std::getenv( "ALLOWED_ORIGINS" ) )
+      {
+        auto ec = boost::system::error_code{};
+        auto p = boost::json::parse( env_p, ec );
+        if ( ec )
+        {
+          LOG_WARN << "Error parsing allowed origins from environment variable " << env_p;
+          return;
+        }
+
+        if ( !p.is_array() )
+        {
+          LOG_CRIT << "Invalid value for ALLOWED_ORIGINS.  Expected array.";
+          return;
+        }
+
+        auto& arr = p.as_array();
+        origins.reserve( arr.size() );
+        for ( const auto& origin : arr ) origins.emplace_back( origin.as_string() );
+        LOG_INFO << fmt::format( "Parsed allowed origins {}", origins );
+      }
+    }
+  };
+}
+
+void spt::server::cors( const nghttp2::asio_http2::header_map& headers, const nghttp2::asio_http2::server::response& res )
+{
+  auto hdrs = nghttp2::asio_http2::header_map{
+      { "Access-Control-Allow-Methods", { "GET,OPTIONS", false } },
+      { "Access-Control-Allow-Headers", { "*, authorization", false } },
+      { "content-length", { "0", false } }
   };
 
-  res.write_head(204, headers);
+  if ( const auto iter = headers.find( "origin" ); iter != std::cend( headers ) )
+  {
+    const auto& origins = phandlers::Holder::instance().origins;
+    if ( origins.empty() )
+    {
+      hdrs.emplace( "Access-Control-Allow-Origin", nghttp2::asio_http2::header_value{ iter->second.value, false } );
+      hdrs.emplace( "Vary", nghttp2::asio_http2::header_value{ "Origin", false } );
+    }
+    else
+    {
+      const auto oiter = ranges::find( origins, iter->second.value );
+      if ( oiter != ranges::end( origins ) )
+      {
+        hdrs.emplace( "Access-Control-Allow-Origin", nghttp2::asio_http2::header_value{ iter->second.value, false } );
+        hdrs.emplace( "Vary", nghttp2::asio_http2::header_value{ "Origin", false } );
+      }
+      else
+      {
+        LOG_WARN << "Origin " << iter->second.value << " not allowed.  Configured origins: " << fmt::format( "{}", phandlers::Holder::instance().origins );
+      }
+    }
+  }
+
+  res.write_head( 204, std::move( hdrs ) );
 }
 
 auto spt::server::compress( std::string_view data ) -> Output

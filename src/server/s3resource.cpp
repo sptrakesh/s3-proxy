@@ -159,7 +159,7 @@ void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
       const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
       metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
-      return cors( res );
+      return cors( req.header(), res );
     }
 
     if ( methods.find( req.method() ) == std::cend( methods ) )

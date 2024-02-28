@@ -90,6 +90,11 @@ Full list of options can always be consulted by running the following:
 /opt/spt/bin/s3proxy --help
 ```
 
+### Environment Variables
+THe following environment variables may be used to specify additional configuration values to the
+proxy server.
+* `ALLOWED_ORIGINS` - Comma separated list of origins supported for sending CORS headers.
+
 ### Metric
 Metric is captured in a simple [struct](src/model/metric.h).  If **MMDB**
 integration is enabled, additional information about the *visitors* geo-location
@@ -155,7 +160,7 @@ reverse conversion when the *tag value* is specified as an *adhoc filter* in
 the *query*.
 
 ## Testing
-[Integration Test](test/lua/README.md)
+Integration tests are under the [integration](test/integration) directory.
 
 Basic performance testing has been performed using Apache Benchmarking utility.
 
@@ -299,18 +304,13 @@ curl -i --header "Authorization: Bearer <authKey>" http://127.0.0.1:8000/_proxy/
 ## Acknowledgements
 This software has been developed mainly using work other people have contributed.
 The following are the components used to build this software:
-* **[Boost:Beast](https://github.com/boostorg/beast)** - We use *Beast* for the
-`http` server implementation.  The implementation is a modified version of the
-[async](https://github.com/boostorg/beast/tree/develop/example/http/server/async)
-example.
-* **[nghttp2](https://github.com/nghttp2/nghttp2)** - We use *nghttp2* for the
-  `HTTP/2` server implementation.
-* **[AWS SDK](https://github.com/aws/aws-sdk-cpp)** - We use the **S3** module
-to access the underlying *S3 bucket*.
+* **[nghttp2](https://github.com/nghttp2/nghttp2)** - We use *nghttp2* for the `HTTP/2` server implementation.
+* **[AWS SDK](https://github.com/aws/aws-sdk-cpp)** - We use the **S3** module to access the underlying *S3 bucket*.
 * **[Clara](https://github.com/catchorg/Clara)** - Command line options parser.
-* **[NanoLog](https://github.com/Iyengar111/NanoLog)** - Logging framework used
-for the server.  I modified the implementation for daily rolling log files.
-* **[expirationCache](https://github.com/zapredelom/expirationCache)** - Cache
-manager for S3 object metadata.
-* **[concurrentqueue](https://github.com/cameron314/concurrentqueue)** - Lock
-free concurrent queue implementation for metrics.
+* **[NanoLog](https://github.com/Iyengar111/NanoLog)** - Logging framework used for the server.  I modified the implementation for daily rolling log files.
+* **[expirationCache](https://github.com/zapredelom/expirationCache)** - Cache manager for S3 object metadata.
+* **[concurrentqueue](https://github.com/cameron314/concurrentqueue)** - Lock free concurrent queue implementation for metrics.
+* **[fmt](https://github.com/fmtlib/fmt)** - Since `std::format` is not available for all compilers.
+* **[range-v3](https://github.com/ericniebler/range-v3)** - Since `ranges` is also not available for all compilers.
+* **[cpr](https://github.com/libcpr/cpr)** - HTTP request client library for integration testing.
+* **[Catch2](https://github.com/catchorg/Catch2)** - Test framework for integration testing.

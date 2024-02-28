@@ -8,7 +8,7 @@ endif()
 project(s3-proxy)
 
 # Enable C++20 features
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -30,9 +30,12 @@ if (APPLE)
   find_package(OpenSSL REQUIRED)
 endif()
 
-find_package(Boost REQUIRED COMPONENTS iostreams)
-find_package(libmongocxx-static REQUIRED)
+find_package(Boost REQUIRED COMPONENTS iostreams json)
+find_package(mongocxx REQUIRED)
+find_package(fmt REQUIRED)
+find_package(range-v3 REQUIRED)
 find_package(Threads)
+find_package(ZLIB)
 find_package(AWSSDK REQUIRED COMPONENTS s3)
 
 if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -63,3 +66,8 @@ set(CMAKE_INSTALL_PREFIX /opt/spt)
 
 add_definitions(-DCACHE_TTL=86400)
 add_subdirectory(src)
+
+if (BUILD_TESTING)
+  enable_testing()
+  add_subdirectory(test/integration)
+endif()
