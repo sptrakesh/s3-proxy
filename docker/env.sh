@@ -1,4 +1,4 @@
 #!/bin/sh
 
-VERSION=2.0.3
+VERSION=2.1.0
 NAME='s3-proxy'

@@ -51,9 +51,9 @@ std::string Configuration::str() const
     R"(, "logLevel": ")" << logLevel <<
     R"(", "mmdb": {"host": ")" << mmdbHost <<
     R"(", "port": )" << mmdbPort << '}' <<
-    R"(, "akumuli": {"host": ")" << akumuli <<
-    R"(", "prefix": ")" << metricPrefix <<
-    R"(", "port": )" << akumuliPort << '}' <<
+    R"(, "ilp": {"host": ")" << ilpHost <<
+    R"(", "series": ")" << ilpSeries <<
+    R"(", "port": )" << ilpHost << '}' <<
     R"(, "mongo": {"uri": ")" << moss.str() <<
     R"(", "database": ")" << mongoDatabase <<
     R"(", "collection": ")" << mongoCollection << "\"}" <<
@@ -63,5 +63,5 @@ std::string Configuration::str() const
 
 bool spt::model::publishMetrics( const Configuration& config )
 {
-  return !config.mmdbHost.empty() && (!config.akumuli.empty() || !config.mongoUri.empty());
+  return !config.mmdbHost.empty() && (!config.ilpHost.empty() || !config.mongoUri.empty());
 }

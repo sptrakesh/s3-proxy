@@ -28,17 +28,17 @@ namespace spt::model
     std::string cacheDir{ "/tmp" };
     std::string logLevel{ "info" };
     std::string mmdbHost;
-    std::string akumuli;
-    std::string metricPrefix{ "request" };
+    std::string ilpHost;
+    std::string ilpSeries{ "request" };
     std::string mongoUri;
     std::string mongoDatabase{ "metrics" };
     std::string mongoCollection{ "request" };
-    int port = 8000;
-    int mmdbPort = 8010;
-    int akumuliPort = 8282;
-    int ttl = 300;
+    int port{ 8000 };
+    int mmdbPort{ 8010 };
+    int ilpPort{ 9009 };
+    int ttl{ 300 };
     int threads = std::thread::hardware_concurrency();
-    bool rejectQueryStrings = false;
+    bool rejectQueryStrings{ false };
 
     [[nodiscard]] std::string str() const;
 

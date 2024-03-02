@@ -35,9 +35,9 @@ int main( int argc, char const * const * argv )
       Opt(config.bucket, "bucket")["-b"]["--bucket"]("AWS bucket from which files are to be served") |
       Opt(config.mmdbHost, "mmdbHost")["-m"]["--mmdb-host"]("MMDB TCP service host. Disabled if not specified.") |
       Opt(config.mmdbPort, "mmdbPort")["-x"]["--mmdb-port"]("MMDB TCP service port (default 2010)") |
-      Opt(config.akumuli, "akumuliHost")["-y"]["--akumuli-host"]("Akumuli TSDB host. Disabled if not specified or if MMDB host is not specified.") |
-      Opt(config.metricPrefix, "metricPrefix")["-e"]["--akumuli-metric-prefix"]("Akumuli metric prefix (default request)") |
-      Opt(config.akumuliPort, "akumuliPort")["-z"]["--akumuli-port"]("Akumuli RESP service port (default 8282)") |
+      Opt(config.ilpHost, "ilpHost")["-y"]["--ilp-host"]("ILP TSDB host. Disabled if not specified or if MMDB host is not specified.") |
+      Opt(config.ilpSeries, "ilpSeries")["-e"]["--ilp-series-name"]("ILP time series name (default request)") |
+      Opt(config.ilpPort, "ilpPort")["-z"]["--ilp-port"]("ILP service port (default 9009)") |
       Opt(config.mongoUri, "mongoUri")["-f"]["--mongo-uri"]("MongoDB connection uri. Disabled if not specified or if MMDB host is not specified.") |
       Opt(config.mongoDatabase, "mongoDatabase")["-g"]["--mongo-database"]("MongoDB database to write metrics to (default metrics)") |
       Opt(config.mongoCollection, "mongoCollection")["-i"]["--mongo-collection"]("MongoDB collection to write metrics to (default request)") |

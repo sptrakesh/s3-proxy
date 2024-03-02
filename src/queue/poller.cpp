@@ -5,7 +5,8 @@
 #include "poller.h"
 #include "queuemanager.h"
 #include "contextholder.h"
-#include "client/akumuli.h"
+#include "client/builder.h"
+#include "client/ilp.h"
 #include "client/mmdb.h"
 #include "log/NanoLog.h"
 #include "model/config.h"
@@ -83,132 +84,51 @@ namespace spt::queue::tsdb
   struct TSDBClient
   {
     TSDBClient( boost::asio::io_context& ioc, const model::Configuration& configuration ) :
-        client{ ioc, configuration.akumuli, configuration.akumuliPort },
-        metricPrefix{ configuration.metricPrefix }
-    {
-      client.connect();
-    }
-
-    ~TSDBClient()
-    {
-      client.stop();
-    }
+        client{ ioc, configuration.ilpHost, std::to_string( configuration.ilpPort ) },
+        seriesName{ configuration.ilpSeries } {}
 
     void save( const model::Metric& metric, const client::MMDBConnection::Properties& fields )
     {
       ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
           std::chrono::system_clock::now().time_since_epoch() );
 
-      saveCount( metric );
-      saveSize( metric );
-      saveTime( metric );
-      if ( !fields.empty() ) saveLocation( metric, fields );
-    }
+      auto builder = client::Builder{};
+      builder.addTag( "method", metric.method ).
+        addTag( "resource", resource( metric ) ).
+        addTag( "ipaddress", metric.ipaddress );
 
-  private:
-    void saveCount( const model::Metric& metric )
-    {
-      std::ostringstream ss;
-      ss << metricPrefix;
-      ss << ".counter";
-
-      auto tags = client::Tags{};
-      tags.reserve( 5 );
-      tags.emplace_back( "method", metric.method );
-      tags.emplace_back( "resource", resource( metric ) );
-      tags.emplace_back( "ipaddress", metric.ipaddress );
-      tags.emplace_back( "status", std::to_string( metric.status ) );
-      if ( !metric.mimeType.empty() ) tags.emplace_back( "mimeType", metric.mimeType );
-      client.addSeries( client::IntegerSeries{ ss.str(), std::move( tags ), ns, 1 } );
-    }
-
-    void saveSize( const model::Metric& metric )
-    {
-      std::ostringstream ss;
-      ss << metricPrefix;
-      ss << ".size";
-
-      auto tags = client::Tags{};
-      tags.reserve( 5 );
-      tags.emplace_back( "method", metric.method );
-      tags.emplace_back( "resource", resource( metric ) );
-      tags.emplace_back( "ipaddress", metric.ipaddress );
-      tags.emplace_back( "status", std::to_string( metric.status ) );
-      if ( !metric.mimeType.empty() ) tags.emplace_back( "mimeType", metric.mimeType );
-      client.addSeries( client::IntegerSeries{ ss.str(), std::move( tags ),
-          ns, int64_t( metric.size ) } );
-    }
-
-    void saveTime( const model::Metric& metric )
-    {
-      std::ostringstream ss;
-      ss << metricPrefix;
-      ss << ".time";
+      if ( !metric.mimeType.empty() ) builder.addTag( "mimeType", metric.mimeType );
 
       auto nanos = std::chrono::nanoseconds{ metric.time };
       auto millis = std::chrono::duration_cast<std::chrono::milliseconds>( nanos );
+      builder.addValue( "size", static_cast<uint64_t>( metric.size ) ).
+        addValue( "time", millis.count() ).
+        addValue( "status", metric.status );
 
-      auto tags = client::Tags{};
-      tags.reserve( 5 );
-      tags.emplace_back( "method", metric.method );
-      tags.emplace_back( "resource", resource( metric ) );
-      tags.emplace_back( "ipaddress", metric.ipaddress );
-      tags.emplace_back( "status", std::to_string( metric.status ) );
-      if ( !metric.mimeType.empty() ) tags.emplace_back( "mimeType", metric.mimeType );
-      client.addSeries( client::IntegerSeries{ ss.str(), std::move( tags ),
-          ns, millis.count() } );
+      if ( !fields.empty() ) saveLocation( fields, builder );
     }
 
-    void saveLocation( const model::Metric& metric, const client::MMDBConnection::Properties& fields )
+  private:
+    void saveLocation( const client::MMDBConnection::Properties& fields, client::Builder& builder )
     {
       if ( fields.empty() ) return;
 
-      const auto geojson = [this, &fields]() -> std::string
-      {
-        auto it = fields.find( "latitude" );
-        if ( it == fields.end() ) return {};
-        const auto lat = it->second;
+      auto it = fields.find( "latitude" );
+      if ( it == fields.end() ) return;
+      const auto lat = it->second;
 
-        it = fields.find( "longitude" );
-        if ( it == fields.end() ) return {};
-        const auto lng = it->second;
+      it = fields.find( "longitude" );
+      if ( it == fields.end() ) return;
+      const auto lng = it->second;
 
-        auto mms = std::chrono::duration_cast<std::chrono::microseconds>( ns );
+      builder.addValue( "latitude", lat );
+      builder.addValue( "longitude", lng );
 
-        std::ostringstream oss;
-        oss << R"({"type": "geo:json", "value": {"type": "Point", "coordinates": [)" <<
-          lat << ',' << lng <<
-          R"(]}, "metadata": {"timestamp": {"type": "DateTime", "value": ")" <<
-          util::isoDate( mms.count() ) <<
-          R"("}}})";
-        return oss.str();
-      };
-
-      const auto data = geojson();
-      if ( data.empty() )
-      {
-        LOG_WARN << "No location data in metric.\n" << metric.str();
-        return;
-      }
-      std::ostringstream ss;
-      ss << metricPrefix;
-      ss << ".location";
-
-      auto tags = client::Tags{};
-      tags.reserve( 10 );
-      tags.emplace_back( "method", metric.method );
-      tags.emplace_back( "resource", resource( metric ) );
-      tags.emplace_back( "ipaddress", metric.ipaddress );
-      tags.emplace_back( "status", std::to_string( metric.status ) );
-      if ( !metric.mimeType.empty() ) tags.emplace_back( "mimeType", metric.mimeType );
-
-      addTag( tags, fields, "city" );
-      addTag( tags, fields, "continent" );
-      addTag( tags, fields, "country" );
-      addTag( tags, fields, "country_iso_code" );
-      addTag( tags, fields, "subdivision" );
-
-      client.addSeries( client::StringEvent{ ss.str(), std::move( tags ), ns, data } );
+      addTag( builder, fields, "city" );
+      addTag( builder, fields, "continent" );
+      addTag( builder, fields, "country" );
+      addTag( builder, fields, "country_iso_code" );
+      addTag( builder, fields, "subdivision" );
     }
 
     std::string resource( const model::Metric& metric )
@@ -217,18 +137,18 @@ namespace spt::queue::tsdb
       return idx == std::string::npos ? metric.resource : metric.resource.substr( 0, idx );
     }
 
-    void addTag( client::Tags& tags,
-        const client::MMDBConnection::Properties& fields, std::string key )
+    void addTag( client::Builder& builder,
+        const client::MMDBConnection::Properties& fields, const std::string& key )
     {
       const auto it = fields.find( key );
       if ( it == fields.end() ) return;
-      auto v = boost::algorithm::replace_all_copy( it->second, " ", "__#SPACE#__" );
+      auto v = boost::algorithm::replace_all_copy( it->second, " ", "_" );
       LOG_DEBUG << "Adding tag key: " << key << ", value: " << v;
-      tags.emplace_back( std::move( key ), std::move( v ) );
+      builder.addTag( key, std::move( v ) );
     };
 
-    client::Akumuli client;
-    std::string metricPrefix;
+    client::ILPClient client;
+    std::string seriesName;
     std::chrono::nanoseconds ns;
   };
 }
@@ -245,7 +165,7 @@ void Poller::run()
   {
     mongo = std::make_unique<tsdb::MongoClient>( configuration );
   }
-  if ( !configuration.akumuli.empty() )
+  if ( !configuration.ilpHost.empty() )
   {
     tsdb = std::make_unique<tsdb::TSDBClient>( ContextHolder::instance().ioc, configuration );
   }
