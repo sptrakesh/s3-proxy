@@ -12,7 +12,7 @@ COPY src /opt/spt/s3-proxy/src
 WORKDIR /opt/spt/s3-proxy/build
 RUN apk add --no-cache curl-dev snappy-dev openssl-libs-static \
   && rm -rf * \
-  && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/local -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=mold" -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=mold" .. \
+  && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/opt/local .. \
   && make -j8 \
   && make install
 

@@ -9,7 +9,7 @@ using spt::client::Builder;
 
 namespace spt::client::pbuilder
 {
-  std::string clean( std::string_view view )
+  std::string clean( std::string_view view, bool space = true )
   {
     std::string value{};
     value.reserve( view.size() + 16 );
@@ -48,6 +48,12 @@ namespace spt::client::pbuilder
         value.append( 2, '\\' );
         break;
       }
+      case ' ':
+      {
+        if ( space ) value.append( "\\ " );
+        else value.append( 1, view[i] );
+        break;
+      }
       default:
         value.append( 1, view[i] );
       }
@@ -66,7 +72,7 @@ Builder& Builder::startRecord( std::string_view name )
 Builder& Builder::addTag( std::string_view key, std::string_view v )
 {
   if ( !record->tags.empty() ) record->tags.append( "," );
-  record->tags.append( fmt::format( "{}={}", key, pbuilder::clean( v ) ) );
+  record->tags.append( fmt::format( "{}={}", key, pbuilder::clean( v, true ) ) );
   return *this;
 }
 
@@ -125,7 +131,7 @@ Builder& Builder::addValue( std::string_view key, double v )
 Builder& Builder::addValue( std::string_view key, std::string_view v )
 {
   if ( !record->value.empty() ) record->value.append( "," );
-  record->value.append( fmt::format( "{}=\"{}\"", key, pbuilder::clean( v ) ) );
+  record->value.append( fmt::format( "{}=\"{}\"", key, pbuilder::clean( v, false ) ) );
   return *this;
 }
 

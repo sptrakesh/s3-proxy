@@ -7,7 +7,7 @@ endif()
 
 project(s3-proxy)
 
-# Enable C++20 features
+# Enable C++23 features
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -20,6 +20,18 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
+if (UNIX AND NOT APPLE)
+  if (CMAKE_HOST_SYSTEM_PROCESSOR EQUAL "arm64" )
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=mold")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=mold")
+    message(STATUS "Enabling mold linker")
+  elseif (CMAKE_HOST_SYSTEM_PROCESSOR EQUAL "aarch64" )
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=mold")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=mold")
+    message(STATUS "Enabling mold linker")
+  endif (CMAKE_HOST_SYSTEM_PROCESSOR EQUAL "arm64" )
+endif (UNIX AND NOT APPLE)
 
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_STATIC_RUNTIME ON)

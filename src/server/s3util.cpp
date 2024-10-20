@@ -16,6 +16,7 @@
 
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentials.h>
+#include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/s3/model/GetObjectRequest.h>
 
 using spt::server::S3Util;
@@ -39,7 +40,7 @@ S3Util::S3Util()
   clientConfig.region = configuration.region;
   client = std::make_unique<Aws::S3::S3Client>(
       Aws::Auth::AWSCredentials{ configuration.key, configuration.secret },
-      Aws::MakeShared<Aws::S3::S3EndpointProvider>(Aws::S3::S3Client::ALLOCATION_TAG),
+      Aws::MakeShared<Aws::S3::S3EndpointProvider>( Aws::S3::S3Client::GetAllocationTag() ),
       clientConfig );
 }
 
