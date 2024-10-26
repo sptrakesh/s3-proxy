@@ -41,6 +41,14 @@ FromDb()
   else
     MONGO_URI=`$cmd -a get -k /database/mongo/uri`
     MONGO_URI=`/opt/spt/bin/encrypter -d $MONGO_URI`
+
+    key=`$cmd -a get -k $AWS_KEY`
+    key=`/opt/spt/bin/encrypter -d $key`
+    export AWS_KEY="$key"
+
+    sec=`$cmd -a get -k $AWS_SECRET`
+    sec=`/opt/spt/bin/encrypter -d $sec`
+    export AWS_SECRET="$sec"
   fi
 }
 
