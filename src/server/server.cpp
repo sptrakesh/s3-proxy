@@ -28,7 +28,7 @@ int spt::server::run()
     LOG_INFO << "Initialised AWS S3 Util";
 
     nghttp2::asio_http2::server::http2 server;
-    server.num_threads( configuration.threads );
+    server.num_threads( 1 );
 
     server.handle( "/", &spt::server::handleRoot );
 
