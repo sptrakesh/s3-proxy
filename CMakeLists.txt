@@ -1,8 +1,12 @@
-cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
 # For INTERPROCEDURAL_OPTIMIZATION
 if (POLICY CMP0069)
   cmake_policy(SET CMP0069 NEW)
+endif()
+# For Boost
+if (POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
 endif()
 
 project(s3-proxy)
@@ -20,6 +24,22 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
+if (APPLE)
+  list(APPEND CMAKE_PREFIX_PATH "/usr/local/boost")
+  list(APPEND CMAKE_PREFIX_PATH "/usr/local/nghttp2")
+
+  execute_process(
+      COMMAND brew --prefix libnghttp2
+      RESULT_VARIABLE BREW_NGHTTP2
+      OUTPUT_VARIABLE BREW_NGHTTP2_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if (BREW_NGHTTP2 EQUAL 0 AND EXISTS "${BREW_NGHTTP2_PREFIX}")
+    message(STATUS "Found libnghttp2 keg installed by Homebrew at ${BREW_NGHTTP2_PREFIX}")
+    list(APPEND CMAKE_PREFIX_PATH "${BREW_NGHTTP2_PREFIX}/")
+  endif()
+endif()
 
 if (UNIX AND NOT APPLE)
   if (CMAKE_HOST_SYSTEM_PROCESSOR EQUAL "arm64" )
@@ -42,7 +62,7 @@ if (APPLE)
   find_package(OpenSSL REQUIRED)
 endif()
 
-find_package(Boost REQUIRED COMPONENTS iostreams json)
+find_package(Boost REQUIRED COMPONENTS iostreams json url)
 find_package(mongocxx REQUIRED)
 find_package(fmt REQUIRED)
 find_package(range-v3 REQUIRED)
@@ -63,9 +83,11 @@ if (APPLE)
   include_directories(
     /usr/local/aws-sdk/include
     /usr/local/nghttp2/include
+    ${BREW_NGHTTP2_PREFIX}/include
   )
   LINK_DIRECTORIES(
     /usr/local/nghttp2/lib
+    ${BREW_NGHTTP2_PREFIX}/lib
   )
   set(CMAKE_MACOSX_RPATH 1)
 elseif (UNIX)
