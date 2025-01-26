@@ -2,8 +2,8 @@
 // Created by Rakesh on 01/06/2020.
 //
 
-#include "compress.h"
-#include "log/NanoLog.h"
+#include "compress.hpp"
+#include "log/NanoLog.hpp"
 
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/copy.hpp>

@@ -2,8 +2,8 @@
 // Created by Rakesh on 17/05/2020.
 //
 
-#include "queuemanager.h"
-#include "log/NanoLog.h"
+#include "queuemanager.hpp"
+#include "log/NanoLog.hpp"
 
 using spt::queue::QueueManager;
 using spt::model::Metric;

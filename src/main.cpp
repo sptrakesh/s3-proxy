@@ -6,10 +6,10 @@
 #include <iostream>
 #include <mongocxx/instance.hpp>
 
-#include "log/NanoLog.h"
-#include "server/server.h"
-#include "model/config.h"
-#include "util/clara.h"
+#include "log/NanoLog.hpp"
+#include "server/server.hpp"
+#include "model/config.hpp"
+#include "util/clara.hpp"
 
 int main( int argc, char const * const * argv )
 {

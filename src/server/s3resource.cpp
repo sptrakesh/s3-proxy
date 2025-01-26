@@ -2,12 +2,12 @@
 // Created by Rakesh on 19/12/2020.
 //
 
-#include "handlers.h"
-#include "log/NanoLog.h"
-#include "model/config.h"
-#include "queue/queuemanager.h"
-#include "server/s3util.h"
-#include "util/compress.h"
+#include "handlers.hpp"
+#include "log/NanoLog.hpp"
+#include "model/config.hpp"
+#include "queue/queuemanager.hpp"
+#include "server/s3util.hpp"
+#include "util/compress.hpp"
 
 #include <filesystem>
 #include <unordered_set>
@@ -130,111 +130,45 @@ namespace spt::server::impl
 
 }
 
-void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
-    const nghttp2::asio_http2::server::response& res )
+spt::server::Response spt::server::get( const http2::framework::RoutingRequest& rr, const boost::container::flat_map<std::string_view, std::string_view>& )
 {
-  auto static const methods = std::unordered_set<std::string>{ "GET", "HEAD", "OPTIONS" };
+  auto resp = Response( rr.req.header );
+
   const auto& conf = model::Configuration::instance();
 
   const auto st = std::chrono::steady_clock::now();
   auto metric = model::Metric{};
   try
   {
-    metric.method = req.method();
-    metric.resource = req.uri().path;
+    metric.method = rr.req.method;
+    metric.resource = rr.req.path;
+    if ( metric.resource.empty() ) metric.resource = "/";
 
-    const auto pos = metric.resource.find_first_of( '?' );
-    if ( pos != std::string::npos )
+    if ( const auto pos = metric.resource.find_first_of( '?' ); pos != std::string::npos )
     {
       metric.resource = metric.resource.substr( 0, pos );
     }
 
-    metric.ipaddress = ipaddress( req );
-    LOG_DEBUG << "Request from " << metric.ipaddress;
-
-    if ( req.method() == "OPTIONS" )
-    {
-      metric.status = 200;
-      const auto et = std::chrono::steady_clock::now();
-      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-      metric.time = delta.count();
-      queue::QueueManager::instance().publish( std::move( metric ) );
-      return cors( req.header(), res );
-    }
-
-    if ( methods.find( req.method() ) == std::cend( methods ) )
-    {
-      metric.status = 405;
-      const auto et = std::chrono::steady_clock::now();
-      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-      metric.time = delta.count();
-      queue::QueueManager::instance().publish( std::move( metric ) );
-      return write( 405, "Method Not Allowed", res );
-    }
-
-    if ( req.method() == "GET" && metric.resource == "/_proxy/_private/_cache/clear" )
-    {
-      auto bearer = authorise( req );
-      if ( bearer.empty() )
-      {
-        metric.status = 403;
-        const auto et = std::chrono::steady_clock::now();
-        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-        metric.time = delta.count();
-        queue::QueueManager::instance().publish( std::move( metric ) );
-        return write( 403, {}, res );
-      }
-
-      const auto prefix = std::string("Bearer ");
-      if ( !boost::algorithm::starts_with( bearer, prefix ) )
-      {
-        metric.status = 400;
-        const auto et = std::chrono::steady_clock::now();
-        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-        metric.time = delta.count();
-        queue::QueueManager::instance().publish( std::move( metric ) );
-        return write( 400, "Invalid Authorization header", res );
-      }
-
-      std::string temp{ bearer };
-      temp.erase( 0, prefix.size() );
-
-      if ( S3Util::instance().clear( temp ) )
-      {
-        metric.status = 304;
-        const auto et = std::chrono::steady_clock::now();
-        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-        metric.time = delta.count();
-        queue::QueueManager::instance().publish( std::move( metric ) );
-        return write( 304, {}, res );
-      }
-      else
-      {
-        metric.status = 403;
-        const auto et = std::chrono::steady_clock::now();
-        const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
-        metric.time = delta.count();
-        queue::QueueManager::instance().publish( std::move( metric ) );
-        return write( 403, {}, res );
-      }
-    }
+    metric.ipaddress = ipaddress( rr.req );
+    LOG_DEBUG << "Request from " << metric.ipaddress << " to " << metric.resource;
 
     // Request path must be absolute and not contain "..".
-    if ( metric.resource.empty() ||
-        metric.resource[0] != '/' ||
-        metric.resource.find( ".." ) != std::string::npos )
+    if ( metric.resource.empty() || metric.resource[0] != '/' || metric.resource.contains( ".." ) )
     {
       metric.status = 400;
       const auto et = std::chrono::steady_clock::now();
       const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
       metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
-      return write( 400, "Illegal request-target", res );
+
+      resp.status = 400;
+      resp.body = "Illegal request-target";
+      return resp;
     }
 
     // Query strings make no sense in the context of trying to
     // serve files stored in S3 buckets.  If configured as error reject.
-    if ( conf.rejectQueryStrings && metric.resource.find( '?' ) != std::string::npos )
+    if ( conf.rejectQueryStrings && metric.resource.contains( '?' ) )
     {
       LOG_DEBUG << "Request " << metric.resource << " rejected due to query string policy";
       metric.status = 400;
@@ -242,7 +176,10 @@ void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
       const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
       metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
-      return write( 400, "Illegal request-target", res );
+
+      resp.status = 400;
+      resp.body = "Illegal request-target";
+      return resp;
     }
 
     if ( metric.resource.back() == '/' )
@@ -259,12 +196,12 @@ void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
       const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
       metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
-      return write( 404, {}, res );
+
+      resp.status = 404;
+      return resp;
     }
-    else
-    {
-      LOG_INFO << "Downloaded resource " << metric.resource << " from S3\n" << downloaded->str();
-    }
+
+    LOG_INFO << "Downloaded resource " << metric.resource << " from S3\n" << downloaded->str();
 
     // Build the path to the requested file
     std::string path = impl::path_cat( conf.cacheDir, metric.resource );
@@ -273,7 +210,7 @@ void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
     if ( downloaded->contentType.empty() ) metric.mimeType = std::string{ impl::mime_type( path ) };
     else metric.mimeType = downloaded->contentType;
 
-    const auto compressed = shouldCompress( req ) && impl::should_compress( path );
+    const auto compressed = shouldCompress( rr.req ) && impl::should_compress( path );
     LOG_DEBUG << "Compressed request for " << metric.resource;
 
     const auto fn = compressed ? util::compressedFileName( downloaded->fileName ) : downloaded->fileName;
@@ -292,7 +229,10 @@ void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
       const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
       metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
-      return write( 500, "I/O error", res );
+
+      resp.status = 500;
+      resp.body = "I/O error";
+      return resp;
     }
 
     // Handle the case where the file doesn't exist
@@ -303,15 +243,17 @@ void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
       const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
       metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
-      return write( 404, {}, res );
+
+      resp.status = 404;
+      return resp;
     }
 
     metric.size = size;
     metric.compressed = compressed;
 
-    auto headers = nghttp2::asio_http2::header_map{
+    resp.headers = nghttp2::asio_http2::header_map{
         {"Access-Control-Allow-Origin", {"*", false}},
-        {"Access-Control-Allow-Methods", {"GET,OPTIONS", false}},
+        {"Access-Control-Allow-Methods", {"GET,HEAD,OPTIONS", false}},
         {"Access-Control-Allow-Headers", {"*, authorization", false}},
         {"content-type", { metric.mimeType, false } },
         { "etag", { downloaded->etag, false } },
@@ -321,25 +263,24 @@ void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
 
     if ( !downloaded->cacheControl.empty() )
     {
-      headers.emplace( "cache-control",
-          nghttp2::asio_http2::header_value{ downloaded->cacheControl, false } );
+      resp.headers.emplace( "cache-control", nghttp2::asio_http2::header_value{ downloaded->cacheControl, false } );
     }
 
     // Respond to HEAD request
-    if ( req.method() == "HEAD" )
+    if ( rr.req.method == "HEAD" )
     {
-      headers.emplace( "content-length",
-          nghttp2::asio_http2::header_value{ std::to_string( downloaded->contentLength ), false } );
+      resp.headers.emplace( "content-length", nghttp2::asio_http2::header_value{ std::to_string( downloaded->contentLength ), false } );
       metric.status = 200;
       const auto et = std::chrono::steady_clock::now();
       const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
       metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
-      res.write_head( 200, std::move( headers ) );
-      return write( 200, {}, res );
+
+      resp.status = 200;
+      return resp;
     }
 
-    auto ifmatch = ifNoneMatch( req );
+    auto ifmatch = ifNoneMatch( rr.req );
     if ( downloaded->etag == ifmatch )
     {
       metric.status = 304;
@@ -347,10 +288,12 @@ void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
       const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
       metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
-      return write( 304, {}, res );
+
+      resp.status = 304;
+      return resp;
     }
 
-    auto ifmodified = ifModifiedSince( req );
+    auto ifmodified = ifModifiedSince( rr.req );
     if ( downloaded->lastModifiedTime() == ifmodified )
     {
       metric.status = 304;
@@ -358,14 +301,16 @@ void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
       const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
       metric.time = delta.count();
       queue::QueueManager::instance().publish( std::move( metric ) );
-      return write( 304, {}, res );
+
+      resp.status = 304;
+      return resp;
     }
 
     if ( compressed )
     {
-      headers.emplace( "content-encoding", nghttp2::asio_http2::header_value{ "gzip", false } );
+      resp.headers.emplace( "content-encoding", nghttp2::asio_http2::header_value{ "gzip", false } );
     }
-    headers.emplace( "content-length",
+    resp.headers.emplace( "content-length",
         nghttp2::asio_http2::header_value{ std::to_string( metric.size ), false } );
 
     metric.status = 200;
@@ -374,13 +319,94 @@ void spt::server::handleRoot( const nghttp2::asio_http2::server::request& req,
     metric.time = delta.count();
     queue::QueueManager::instance().publish( std::move( metric ) );
 
-    res.write_head( 200, std::move( headers ) );
-    return res.end( nghttp2::asio_http2::file_generator( fn ) );
+    resp.status = 200;
+    resp.filePath = fn;
+    return resp;
   }
   catch ( const std::exception& ex )
   {
     LOG_CRIT << "Error processing request " << ex.what();
-    return write( 500, "Unknown error",  res );
+    resp.status = 500;
+    resp.body = "Unknown error";
   }
+
+  return resp;
 }
 
+spt::server::Response spt::server::clear( const http2::framework::RoutingRequest& rr, const boost::container::flat_map<std::string_view, std::string_view>& )
+{
+  auto resp = Response( rr.req.header );
+
+  const auto st = std::chrono::steady_clock::now();
+  auto metric = model::Metric{};
+
+  try
+  {
+    metric.method = rr.req.method;
+    metric.resource = rr.req.path;
+    if ( metric.resource.empty() ) metric.resource = "/";
+
+    if ( const auto pos = metric.resource.find_first_of( '?' ); pos != std::string::npos )
+    {
+      metric.resource = metric.resource.substr( 0, pos );
+    }
+
+    metric.ipaddress = ipaddress( rr.req );
+    LOG_DEBUG << "Request from " << metric.ipaddress << " to " << metric.resource;
+
+    auto bearer = authorise( rr.req );
+    if ( bearer.empty() )
+    {
+      metric.status = 403;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
+      queue::QueueManager::instance().publish( std::move( metric ) );
+      resp.status = 403;
+      return resp;
+    }
+
+    const auto prefix = std::string("Bearer ");
+    if ( !boost::algorithm::starts_with( bearer, prefix ) )
+    {
+      resp.status = 400;
+      resp.body = "Invalid Authorization header";
+      metric.status = 400;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
+      queue::QueueManager::instance().publish( std::move( metric ) );
+      return resp;
+    }
+
+    std::string temp{ bearer };
+    temp.erase( 0, prefix.size() );
+
+    if ( S3Util::instance().clear( temp ) )
+    {
+      resp.status = 304;
+      metric.status = 304;
+      const auto et = std::chrono::steady_clock::now();
+      const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+      metric.time = delta.count();
+      queue::QueueManager::instance().publish( std::move( metric ) );
+      return resp;
+    }
+
+    resp.status = 403;
+    metric.status = 403;
+    const auto et = std::chrono::steady_clock::now();
+    const auto delta = std::chrono::duration_cast<std::chrono::nanoseconds>( et - st );
+    metric.time = delta.count();
+    queue::QueueManager::instance().publish( std::move( metric ) );
+    return resp;
+  }
+  catch ( const std::exception& ex )
+  {
+    LOG_CRIT << "Error processing request " << ex.what();
+    resp.status = 500;
+    resp.body = "Unknown error";
+  }
+
+  return resp;
+}

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "model/s3object.h"
+#include "model/s3object.hpp"
 
 #include <aws/s3/S3Client.h>
 

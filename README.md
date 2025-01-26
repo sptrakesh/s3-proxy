@@ -95,6 +95,10 @@ THe following environment variables may be used to specify additional configurat
 proxy server.
 * `ALLOWED_ORIGINS` - Comma separated list of origins supported for sending CORS headers.
 
+```shell
+ALLOWED_ORIGINS='["http://127.0.0.1:8080", "http://localhost:8080", "http://local.sptci.com:8080"]' <path to>/s3proxy [options]
+```
+
 ### Metric
 Metric is captured in a simple [struct](src/model/metric.h).  If **MMDB**
 integration is enabled, additional information about the *visitors* geo-location

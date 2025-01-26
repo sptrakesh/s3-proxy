@@ -2,10 +2,10 @@
 // Created by Rakesh on 16/12/2020.
 //
 
-#include "mmdb.h"
-#include "contextholder.h"
-#include "log/NanoLog.h"
-#include "model/config.h"
+#include "mmdb.hpp"
+#include "contextholder.hpp"
+#include "log/NanoLog.hpp"
+#include "model/config.hpp"
 
 #include <vector>
 

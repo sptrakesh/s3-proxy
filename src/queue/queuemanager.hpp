@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include "concurrentqueue.h"
-#include "model/config.h"
-#include "model/metric.h"
+#include "concurrentqueue.hpp"
+#include "model/config.hpp"
+#include "model/metric.hpp"
 
 namespace spt::queue
 {

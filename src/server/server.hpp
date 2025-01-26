@@ -3,7 +3,7 @@
 //
 
 #pragma once
-#include "model/config.h"
+#include "model/config.hpp"
 
 namespace spt::server
 {

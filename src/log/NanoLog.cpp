@@ -26,9 +26,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 */
 
-#include "NanoLog.h"
-#include "tee.h"
-#include "day.h"
+#include "NanoLog.hpp"
+#include "tee.hpp"
+#include "day.hpp"
 #include <atomic>
 #include <cstring>
 #include <chrono>

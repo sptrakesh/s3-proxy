@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "ExpirationCache.h"
-#include "model/s3object.h"
+#include "ExpirationCache.hpp"
+#include "model/s3object.hpp"
 
 namespace spt::util
 {

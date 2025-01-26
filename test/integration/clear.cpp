@@ -19,7 +19,7 @@ SCENARIO( "Clear cache tests for proxy server" )
     {
       auto response = cpr::Get( cpr::Url{ fmt::format( "{}/_proxy/_private/_cache/clear", baseUrl ) },
           cpr::HttpVersion{ cpr::HttpVersionCode::VERSION_2_0_PRIOR_KNOWLEDGE } );
-      CHECK( response.status_code == 403 );
+      CHECK( response.status_code == 405 );
     }
 
     AND_WHEN( "GET request to clear cache with invalid authorization header" )
@@ -27,7 +27,7 @@ SCENARIO( "Clear cache tests for proxy server" )
       auto response = cpr::Get( cpr::Url{ fmt::format( "{}/_proxy/_private/_cache/clear", baseUrl ) },
           cpr::HttpVersion{ cpr::HttpVersionCode::VERSION_2_0_PRIOR_KNOWLEDGE },
           cpr::Header{ { "Authorization", "blah" } } );
-      CHECK( response.status_code == 400 );
+      CHECK( response.status_code == 405 );
     }
 
     AND_WHEN( "GET request to clear cache with invalid bearer token" )
@@ -35,20 +35,7 @@ SCENARIO( "Clear cache tests for proxy server" )
       auto response = cpr::Get( cpr::Url{ fmt::format( "{}/_proxy/_private/_cache/clear", baseUrl ) },
           cpr::HttpVersion{ cpr::HttpVersionCode::VERSION_2_0_PRIOR_KNOWLEDGE },
           cpr::Bearer{ "blah" } );
-      CHECK( response.status_code == 403 );
-    }
-
-    AND_WHEN( "GET request to clear cache with valid bearer token" )
-    {
-      auto response = cpr::Get( cpr::Url{ fmt::format( "{}/_proxy/_private/_cache/clear", baseUrl ) },
-          cpr::HttpVersion{ cpr::HttpVersionCode::VERSION_2_0_PRIOR_KNOWLEDGE },
-          cpr::Bearer{ authKey } );
-      CHECK( response.status_code == 304 );
-
-      response = cpr::Get( cpr::Url{ fmt::format( "{}/_proxy/_private/_cache/clear", baseUrl ) },
-          cpr::HttpVersion{ cpr::HttpVersionCode::VERSION_2_0_PRIOR_KNOWLEDGE },
-          cpr::Bearer{ authKey } );
-      CHECK( response.status_code == 304 );
+      CHECK( response.status_code == 405 );
     }
 
     AND_WHEN( "POST request to clear cache" )
@@ -75,12 +62,33 @@ SCENARIO( "Clear cache tests for proxy server" )
       CHECK( response.status_code == 405 );
     }
 
+    AND_WHEN( "DELETE request to clear cache with invalid authorization header" )
+    {
+      auto response = cpr::Delete( cpr::Url{ fmt::format( "{}/_proxy/_private/_cache/clear", baseUrl ) },
+          cpr::HttpVersion{ cpr::HttpVersionCode::VERSION_2_0_PRIOR_KNOWLEDGE },
+          cpr::Header{ { "Authorization", "blah" } } );
+      CHECK( response.status_code == 400 );
+    }
+
     AND_WHEN( "DELETE request to clear cache" )
     {
       auto response = cpr::Delete( cpr::Url{ fmt::format( "{}/_proxy/_private/_cache/clear", baseUrl ) },
           cpr::HttpVersion{ cpr::HttpVersionCode::VERSION_2_0_PRIOR_KNOWLEDGE },
           cpr::Bearer{ "blah" } );
-      CHECK( response.status_code == 405 );
+      CHECK( response.status_code == 403 );
+    }
+
+    AND_WHEN( "DELETE request to clear cache with valid bearer token" )
+    {
+      auto response = cpr::Delete( cpr::Url{ fmt::format( "{}/_proxy/_private/_cache/clear", baseUrl ) },
+          cpr::HttpVersion{ cpr::HttpVersionCode::VERSION_2_0_PRIOR_KNOWLEDGE },
+          cpr::Bearer{ authKey } );
+      CHECK( response.status_code == 304 );
+
+      response = cpr::Delete( cpr::Url{ fmt::format( "{}/_proxy/_private/_cache/clear", baseUrl ) },
+          cpr::HttpVersion{ cpr::HttpVersionCode::VERSION_2_0_PRIOR_KNOWLEDGE },
+          cpr::Bearer{ authKey } );
+      CHECK( response.status_code == 304 );
     }
   }
 }

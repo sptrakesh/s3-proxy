@@ -2,11 +2,11 @@
 // Created by Rakesh on 05/05/2020.
 //
 
-#include "s3util.h"
-#include "log/NanoLog.h"
-#include "model/config.h"
-#include "util/cache.h"
-#include "util/compress.h"
+#include "s3util.hpp"
+#include "log/NanoLog.hpp"
+#include "model/config.hpp"
+#include "util/cache.hpp"
+#include "util/compress.hpp"
 
 #include <chrono>
 #include <filesystem>

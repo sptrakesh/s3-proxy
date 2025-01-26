@@ -2,7 +2,7 @@
 // Created by Rakesh on 06/05/2020.
 //
 
-#include "s3object.h"
+#include "s3object.hpp"
 
 #include <sstream>
 #include <aws/core/utils/DateTime.h>
