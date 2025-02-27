@@ -52,14 +52,14 @@ std::string spt::server::authorise( const http2::framework::Request& req )
   return iter == std::cend( req.header ) ? std::string{} : iter->second.value;
 }
 
-bool spt::server::shouldCompress( const http2::framework::Request& req )
+bool spt::http2::framework::shouldCompress( const Request& req )
 {
   auto iter = req.header.find( "accept-encoding" );
   if ( iter == std::cend( req.header ) ) iter = req.header.find( "Accept-Encoding" );
   return !( iter == std::cend( req.header ) ) && iter->second.value.find( "gzip" ) != std::string::npos;
 }
 
-std::string spt::server::ipaddress( const http2::framework::Request& req )
+std::string spt::http2::framework::ipaddress( const Request& req )
 {
   auto& header = req.header;
   auto iter = header.find( "x-real-ip" );

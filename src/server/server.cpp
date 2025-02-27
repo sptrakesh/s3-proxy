@@ -65,7 +65,8 @@ int spt::server::run()
 
     auto cfg = spt::http2::framework::Configuration{};
     cfg.port = static_cast<uint16_t>( configuration.port );
-    cfg.numberOfWorkerThreads = configuration.threads;
+    cfg.numberOfServerThreads = configuration.threads;
+    cfg.numberOfWorkerThreads = 2 * configuration.threads;
     cfg.origins = pserver::origins();
     cfg.corsMethods.clear();
     cfg.corsMethods.emplace_back( "GET" );
