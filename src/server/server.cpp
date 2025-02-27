@@ -14,45 +14,7 @@
 #include <cstdlib>
 #include <iostream>
 
-#include <boost/asio/dispatch.hpp>
 #include <boost/asio/signal_set.hpp>
-#include <boost/json/parse.hpp>
-
-namespace
-{
-  namespace pserver
-  {
-    std::vector<std::string> origins()
-    {
-      auto vec = std::vector<std::string>{};
-
-      if ( const char* env_p = std::getenv( "ALLOWED_ORIGINS" ) )
-      {
-        auto ec = boost::system::error_code{};
-        auto p = boost::json::parse( env_p, ec );
-        if ( ec )
-        {
-          LOG_WARN << "Error parsing allowed origins from environment variable " << env_p << ". " << ec.message();
-          return vec;
-        }
-
-        if ( !p.is_array() )
-        {
-          LOG_CRIT << "Invalid value for ALLOWED_ORIGINS.  Expected array.";
-          return vec;
-        }
-
-        const auto& arr = p.as_array();
-        vec.reserve( arr.size() );
-        for ( const auto& origin : arr ) vec.emplace_back( origin.as_string() );
-        LOG_INFO << fmt::format( "Parsed allowed origins {}", fmt::join( vec, ", " ) );
-      }
-      else LOG_INFO << "Allowed origins not configured";
-
-      return vec;
-    }
-  }
-}
 
 int spt::server::run()
 {
@@ -67,7 +29,7 @@ int spt::server::run()
     cfg.port = static_cast<uint16_t>( configuration.port );
     cfg.numberOfServerThreads = configuration.threads;
     cfg.numberOfWorkerThreads = 2 * configuration.threads;
-    cfg.origins = pserver::origins();
+    cfg.origins = Response::origins();
     cfg.corsMethods.clear();
     cfg.corsMethods.emplace_back( "GET" );
     cfg.corsMethods.emplace_back( "HEAD" );
@@ -85,7 +47,7 @@ int spt::server::run()
     server.start();
 
     boost::asio::signal_set signals( ch.ioc, SIGINT, SIGTERM );
-    signals.async_wait( [&ch, &server](auto const&, int ) { server.stop(); ch.ioc.stop(); } );
+    signals.async_wait( [&ch](auto const&, int ) { ch.ioc.stop(); } );
 
     boost::asio::signal_set sigpipe( ch.ioc, SIGPIPE );
     sigpipe.async_wait( [](auto const& ec, int code )
@@ -106,6 +68,7 @@ int spt::server::run()
     ch.ioc.run();
 
     LOG_INFO << "HTTP/2 service stopped";
+    server.stop();
     poller.stop();
     for ( auto& t : v ) if ( t.joinable() ) t.join();
 

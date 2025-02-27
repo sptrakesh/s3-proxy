@@ -188,7 +188,7 @@ void Poller::run()
   LOG_INFO << "Processed " << count << " total metrics from queue";
 }
 
-void spt::queue::Poller::stop()
+void Poller::stop()
 {
   running.store( false );
   LOG_INFO << "Stop requested";
@@ -201,8 +201,8 @@ void Poller::loop()
   while ( queue.consume( metric ) )
   {
     client::MMDBConnection::Properties fields;
-    auto proxy = client::MMDBConnectionPool::instance().acquire();
-    if ( proxy )
+
+    if ( auto proxy = client::MMDBConnectionPool::instance().acquire(); proxy )
     {
       fields = (*proxy)->fields( metric.ipaddress );
     }

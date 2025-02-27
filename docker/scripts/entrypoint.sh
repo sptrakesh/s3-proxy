@@ -154,17 +154,6 @@ Extras()
     echo "MMDB_HOST not set.  Database and MMDB integration disabled"
   fi
 
-  if [ -z "$AKUMULI_HOST" ]
-  then
-    echo "AKUMULI_HOST not set.  Akumuli integration disabled"
-  fi
-
-  if [ -z "$AKUMULI_PORT" ]
-  then
-    AKUMULI_PORT=8282
-    echo "AKUMULI_PORT not set.  Will default to $AKUMULI_PORT"
-  fi
-
   if [ -z "$METRIC_PREFIX" ]
   then
     METRIC_PREFIX="request"
@@ -191,17 +180,10 @@ Extras()
   args=""
   if [ -n "$MMDB_HOST" ]
   then
-    if [ -n "$AKUMULI_HOST" ] || [ -n "$MONGO_URI" ]
+    if [ -n "$MONGO_URI" ]
     then
       args="--mmdb-host $MMDB_HOST --mmdb-port $MMDB_PORT"
-      if [ -n "$AKUMULI_HOST" ]
-      then
-        args="$args --akumuli-host $AKUMULI_HOST --akumuli-metric-prefix $METRIC_PREFIX --akumuli-port $AKUMULI_PORT"
-      fi
-      if [ -n "$MONGO_URI" ]
-      then
-        args="$args --mongo-uri $MONGO_URI --mongo-database $MONGO_DATABASE --mongo-collection $MONGO_COLLECTION"
-      fi
+      args="$args --mongo-uri $MONGO_URI --mongo-database $MONGO_DATABASE --mongo-collection $MONGO_COLLECTION"
     fi
   fi
 
