@@ -7,6 +7,7 @@
 #include "model/metric.hpp"
 #include "queue/queuemanager.hpp"
 
+#include <cstdlib>
 #include <boost/json/parse.hpp>
 #include <fmt/ranges.h>
 
@@ -18,13 +19,13 @@ namespace
     {
       auto vec = std::vector<std::string>{};
 
-      if ( const char* env_p = std::getenv( "ALLOWED_ORIGINS" ) )
+      if ( const char* ao = std::getenv( "ALLOWED_ORIGINS" ) )
       {
         auto ec = boost::system::error_code{};
-        auto p = boost::json::parse( env_p, ec );
+        auto p = boost::json::parse( ao, ec );
         if ( ec )
         {
-          LOG_WARN << "Error parsing allowed origins from environment variable " << env_p << ". " << ec.message();
+          LOG_WARN << "Error parsing allowed origins from environment variable " << ao << ". " << ec.message();
           return vec;
         }
 

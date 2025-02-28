@@ -94,6 +94,8 @@ Full list of options can always be consulted by running the following:
 THe following environment variables may be used to specify additional configuration values to the
 proxy server.
 * `ALLOWED_ORIGINS` - Comma separated list of origins supported for sending CORS headers.
+* `SINGLE_THREADED` - If set to `true`, the `--threads` value will be used to configure the number or worker threads,
+  while the server will be run on a single thread.
 
 ```shell
 ALLOWED_ORIGINS='["http://127.0.0.1:8080", "http://localhost:8080", "http://local.sptci.com:8080"]' <path to>/s3proxy [options]

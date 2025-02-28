@@ -28,6 +28,12 @@ int spt::server::run()
     auto cfg = spt::http2::framework::Configuration{};
     cfg.port = static_cast<uint16_t>( configuration.port );
     cfg.numberOfServerThreads = configuration.threads;
+
+    if ( const char* st = std::getenv( "SINGLE_THREADED" ) )
+    {
+      if ( std::string_view{ st } == "true" ) cfg.numberOfServerThreads = 1;
+    }
+
     cfg.numberOfWorkerThreads = 2 * configuration.threads;
     cfg.origins = Response::origins();
     cfg.corsMethods.clear();
