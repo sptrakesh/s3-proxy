@@ -72,7 +72,7 @@ std::string spt::http2::framework::ipaddress( const Request& req )
     boost::split( parts, trimmed, [](char c){return c == ',' || c == ' ';});
 
     boost::system::error_code ec;
-    boost::asio::ip::address::from_string( parts[0], ec );
+    boost::asio::ip::make_address( parts[0], ec );
     if ( !ec ) return parts[0];
 
     // Trim any port part from address
@@ -80,7 +80,7 @@ std::string spt::http2::framework::ipaddress( const Request& req )
     if ( pos != std::string::npos )
     {
       auto val = parts[0].substr( 0, pos );
-      boost::asio::ip::address::from_string( val, ec );
+      boost::asio::ip::make_address( val, ec );
       if ( !ec ) return val;
     }
 
